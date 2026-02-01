@@ -32,7 +32,7 @@ wrangler.toml
 
 2. Apply migrations:
    ```sh
-   wrangler d1 execute newsbot --file db/migrations.sql
+   wrangler d1 execute newsbot --file db/migrations.sql --remote
    ```
 
 3. Set Worker secrets:
