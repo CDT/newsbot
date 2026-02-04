@@ -24,7 +24,8 @@ export async function summarizeWithGemini(
   );
 
   if (!response.ok) {
-    throw new Error('Gemini summarization failed');
+    const errorBody = await response.text();
+    throw new Error(`Gemini summarization failed (${response.status}): ${errorBody}`);
   }
 
   const data = (await response.json()) as {
