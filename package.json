@@ -1,0 +1,16 @@
+{
+  "name": "newsbot",
+  "private": true,
+  "workspaces": [
+    "apps/admin",
+    "apps/api"
+  ],
+  "scripts": {
+    "dev:admin": "npm run dev -w newsbot-admin",
+    "dev:api": "npm run dev -w newsbot-api",
+    "build:admin": "npm run build -w newsbot-admin",
+    "deploy:api": "npm run deploy -w newsbot-api",
+    "lint": "npm run lint -w newsbot-admin && npm run lint -w newsbot-api",
+    "format": "npm run format -w newsbot-admin && npm run format -w newsbot-api"
+  }
+}
