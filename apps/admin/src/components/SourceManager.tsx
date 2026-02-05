@@ -224,7 +224,7 @@ function SourceForm({
             value={sourceForm.type}
             onChange={(e) => onFormChange({ ...sourceForm, type: e.target.value as "rss" | "api" })}
           >
-            <option value="rss">RSS Feed</option>
+            <option value="rss">Web Feed (RSS/Atom)</option>
             <option value="api">JSON API</option>
           </select>
         </div>
