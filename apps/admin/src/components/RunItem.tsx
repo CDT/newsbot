@@ -4,9 +4,12 @@ import { formatDate } from "../utils";
 
 type RunItemProps = {
   run: RunLog;
+  selected?: boolean;
+  onSelect?: (id: number, selected: boolean) => void;
+  onDelete?: (id: number) => void;
 };
 
-export function RunItem({ run }: RunItemProps) {
+export function RunItem({ run, selected, onSelect, onDelete }: RunItemProps) {
   const getStatusClass = () => {
     if (run.status === "success") return "success";
     if (run.status === "error") return "error";
@@ -27,6 +30,14 @@ export function RunItem({ run }: RunItemProps) {
 
   return (
     <div className="run-item">
+      {onSelect && (
+        <input
+          type="checkbox"
+          checked={selected ?? false}
+          onChange={(e) => onSelect(run.id, e.target.checked)}
+          className="run-item-checkbox"
+        />
+      )}
       <div className={`run-item-icon ${getStatusClass()}`}>
         {getStatusIcon()}
       </div>
@@ -46,6 +57,15 @@ export function RunItem({ run }: RunItemProps) {
       <span className={`badge ${getBadgeClass()}`}>
         {run.status}
       </span>
+      {onDelete && (
+        <button
+          className="btn btn-ghost btn-sm"
+          onClick={() => onDelete(run.id)}
+          title="Delete this run"
+        >
+          <Icons.Trash />
+        </button>
+      )}
     </div>
   );
 }

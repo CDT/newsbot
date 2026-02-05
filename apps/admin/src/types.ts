@@ -24,3 +24,30 @@ export type RunLog = {
   error_message?: string | null;
   email_id?: string | null;
 };
+
+export type Source = {
+  id: number;
+  name: string;
+  type: 'rss' | 'api';
+  url: string;
+  items_path: string | null;
+  enabled: number;
+  last_tested_at: string | null;
+  last_test_status: string | null;
+  last_test_message: string | null;
+  created_at: string;
+};
+
+export type NewsItem = {
+  title: string;
+  url: string;
+  publishedAt?: string;
+  summary?: string;
+};
+
+export type SourceTestResult = {
+  success: boolean;
+  item_count?: number;
+  sample_items?: NewsItem[];
+  error?: string;
+};

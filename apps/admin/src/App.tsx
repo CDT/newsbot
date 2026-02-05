@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import type { GlobalSettings as GlobalSettingsType, ConfigSet, RunLog } from "./types";
+import type { GlobalSettings as GlobalSettingsType, ConfigSet, RunLog, Source } from "./types";
 import { useApi } from "./hooks/useApi";
 import { SESSION_KEY } from "./utils";
 import {
@@ -9,6 +9,7 @@ import {
   Header,
   LoginScreen,
   RunHistory,
+  SourceManager,
 } from "./components";
 
 function App() {
@@ -24,6 +25,7 @@ function App() {
   });
   const [configSets, setConfigSets] = useState<ConfigSet[]>([]);
   const [runs, setRuns] = useState<RunLog[]>([]);
+  const [sources, setSources] = useState<Source[]>([]);
 
   const emptyConfig = useMemo<ConfigSet>(
     () => ({
@@ -52,7 +54,7 @@ function App() {
 
   useEffect(() => {
     if (!token) return;
-    void Promise.all([loadSettings(), loadConfigSets(), loadRuns()]);
+    void Promise.all([loadSettings(), loadConfigSets(), loadRuns(), loadSources()]);
   }, [token]);
 
   async function loadSettings() {
@@ -72,6 +74,11 @@ function App() {
   async function loadRuns() {
     const data = (await apiFetch("/api/runs")) as RunLog[];
     setRuns(data);
+  }
+
+  async function loadSources() {
+    const data = (await apiFetch("/api/sources")) as Source[];
+    setSources(data);
   }
 
   async function saveSettings(event: React.FormEvent) {
@@ -146,6 +153,45 @@ function App() {
     }
   }
 
+  async function deleteRun(id: number) {
+    setError(null);
+    setNotice(null);
+    try {
+      await apiFetch(`/api/runs/${id}`, { method: "DELETE" });
+      setNotice("Run deleted");
+      await loadRuns();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete run");
+    }
+  }
+
+  async function deleteRuns(ids: number[]) {
+    setError(null);
+    setNotice(null);
+    try {
+      await apiFetch("/api/runs", {
+        method: "DELETE",
+        body: JSON.stringify({ ids }),
+      });
+      setNotice(`Deleted ${ids.length} run(s)`);
+      await loadRuns();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete runs");
+    }
+  }
+
+  async function deleteAllRuns() {
+    setError(null);
+    setNotice(null);
+    try {
+      await apiFetch("/api/runs/all", { method: "DELETE" });
+      setNotice("All runs deleted");
+      await loadRuns();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete all runs");
+    }
+  }
+
   function handleLogin(newToken: string) {
     setToken(newToken);
     setNotice("Successfully logged in");
@@ -189,6 +235,14 @@ function App() {
           loading={loading}
         />
 
+        <SourceManager
+          sources={sources}
+          onSourcesChange={loadSources}
+          apiFetch={apiFetch}
+          setError={setError}
+          setNotice={setNotice}
+        />
+
         <ConfigSetList
           configSets={configSets}
           configForm={configForm}
@@ -203,7 +257,13 @@ function App() {
           onDeleteConfig={deleteConfigSet}
         />
 
-        <RunHistory runs={runs} onRefresh={loadRuns} />
+        <RunHistory
+          runs={runs}
+          onRefresh={loadRuns}
+          onDeleteOne={deleteRun}
+          onDeleteMultiple={deleteRuns}
+          onDeleteAll={deleteAllRuns}
+        />
       </main>
     </div>
   );

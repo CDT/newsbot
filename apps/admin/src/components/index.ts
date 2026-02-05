@@ -7,3 +7,4 @@ export { Header } from "./Header";
 export { LoginScreen } from "./LoginScreen";
 export { RunHistory } from "./RunHistory";
 export { RunItem } from "./RunItem";
+export { SourceManager } from "./SourceManager";

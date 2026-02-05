@@ -28,6 +28,32 @@ export async function handleListRuns(env: Env): Promise<Response> {
   return jsonResponse(rows.results ?? []);
 }
 
+export async function handleDeleteRun(env: Env, id: number): Promise<Response> {
+  await env.DB.prepare('DELETE FROM run_log WHERE id = ?').bind(id).run();
+  return jsonResponse({ ok: true });
+}
+
+export async function handleDeleteRuns(request: Request, env: Env): Promise<Response> {
+  const body = (await request.json()) as { ids?: number[] };
+  const ids = body.ids;
+
+  if (!ids || !Array.isArray(ids) || ids.length === 0) {
+    return jsonResponse({ error: 'No run IDs provided' }, 400);
+  }
+
+  const placeholders = ids.map(() => '?').join(',');
+  await env.DB.prepare(`DELETE FROM run_log WHERE id IN (${placeholders})`)
+    .bind(...ids)
+    .run();
+
+  return jsonResponse({ ok: true, deleted: ids.length });
+}
+
+export async function handleDeleteAllRuns(env: Env): Promise<Response> {
+  await env.DB.prepare('DELETE FROM run_log').run();
+  return jsonResponse({ ok: true });
+}
+
 export async function getEnabledConfigSets(env: Env, cron: string): Promise<ConfigSet[]> {
   const rows = await env.DB.prepare(
     'SELECT id, name, enabled, schedule_cron, prompt, sources_json, recipients_json FROM config_set WHERE enabled = 1 AND schedule_cron = ?'

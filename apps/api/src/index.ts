@@ -7,7 +7,23 @@ import {
   handleUpdateConfigSet,
   handleDeleteConfigSet,
 } from './handlers/config-sets';
-import { handleRunConfigSet, handleListRuns, getEnabledConfigSets, runConfigSet } from './handlers/runs';
+import {
+  handleRunConfigSet,
+  handleListRuns,
+  handleDeleteRun,
+  handleDeleteRuns,
+  handleDeleteAllRuns,
+  getEnabledConfigSets,
+  runConfigSet,
+} from './handlers/runs';
+import {
+  handleListSources,
+  handleGetSource,
+  handleCreateSource,
+  handleUpdateSource,
+  handleDeleteSource,
+  handleTestSource,
+} from './handlers/sources';
 
 export type { Env } from './types';
 
@@ -61,6 +77,55 @@ export default {
 
     if (url.pathname === '/api/runs' && request.method === 'GET') {
       return handleListRuns(env);
+    }
+
+    if (url.pathname === '/api/runs/all' && request.method === 'DELETE') {
+      return handleDeleteAllRuns(env);
+    }
+
+    if (url.pathname === '/api/runs' && request.method === 'DELETE') {
+      return handleDeleteRuns(request, env);
+    }
+
+    const runsMatch = url.pathname.match(/^\/api\/runs\/(\d+)$/);
+    if (runsMatch && request.method === 'DELETE') {
+      const id = Number(runsMatch[1]);
+      return handleDeleteRun(env, id);
+    }
+
+    // Sources endpoints
+    if (url.pathname === '/api/sources') {
+      if (request.method === 'GET') {
+        return handleListSources(env);
+      }
+      if (request.method === 'POST') {
+        return handleCreateSource(request, env);
+      }
+    }
+
+    if (url.pathname === '/api/sources/test' && request.method === 'POST') {
+      // Test source without saving (from request body)
+      return handleTestSource(request, env);
+    }
+
+    const sourcesMatch = url.pathname.match(/^\/api\/sources\/(\d+)$/);
+    if (sourcesMatch) {
+      const id = Number(sourcesMatch[1]);
+      if (request.method === 'GET') {
+        return handleGetSource(env, id);
+      }
+      if (request.method === 'PUT') {
+        return handleUpdateSource(request, env, id);
+      }
+      if (request.method === 'DELETE') {
+        return handleDeleteSource(env, id);
+      }
+    }
+
+    const sourceTestMatch = url.pathname.match(/^\/api\/sources\/(\d+)\/test$/);
+    if (sourceTestMatch && request.method === 'POST') {
+      const id = Number(sourceTestMatch[1]);
+      return handleTestSource(request, env, id);
     }
 
     return new Response('Not Found', { status: 404 });

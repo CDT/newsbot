@@ -32,3 +32,19 @@ CREATE TABLE IF NOT EXISTS run_log (
 );
 
 CREATE INDEX IF NOT EXISTS idx_run_log_config_set_id ON run_log(config_set_id);
+
+CREATE TABLE IF NOT EXISTS source (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  type TEXT NOT NULL CHECK (type IN ('rss', 'api')),
+  url TEXT NOT NULL,
+  items_path TEXT,
+  enabled INTEGER NOT NULL DEFAULT 1,
+  last_tested_at TEXT,
+  last_test_status TEXT,
+  last_test_message TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_source_enabled ON source(enabled);
+CREATE INDEX IF NOT EXISTS idx_source_type ON source(type);

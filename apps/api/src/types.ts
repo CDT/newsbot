@@ -28,8 +28,28 @@ export type GlobalSettings = {
   default_sender: string | null;
 };
 
-export type Source = {
+export type SourceConfig = {
   type: string;
   url: string;
   items_path?: string;
+};
+
+export type Source = {
+  id: number;
+  name: string;
+  type: 'rss' | 'api';
+  url: string;
+  items_path: string | null;
+  enabled: number;
+  last_tested_at: string | null;
+  last_test_status: string | null;
+  last_test_message: string | null;
+  created_at: string;
+};
+
+export type SourceTestResult = {
+  success: boolean;
+  item_count?: number;
+  sample_items?: NewsItem[];
+  error?: string;
 };
