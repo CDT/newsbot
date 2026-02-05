@@ -8,3 +8,5 @@ export { LoginScreen } from "./LoginScreen";
 export { RunHistory } from "./RunHistory";
 export { RunItem } from "./RunItem";
 export { SourceManager } from "./SourceManager";
+export { TabBar } from "./TabBar";
+export type { TabId } from "./TabBar";

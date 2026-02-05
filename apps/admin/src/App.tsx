@@ -10,13 +10,16 @@ import {
   LoginScreen,
   RunHistory,
   SourceManager,
+  TabBar,
 } from "./components";
+import type { TabId } from "./components";
 
 function App() {
   const [token, setToken] = useState(() => localStorage.getItem(SESSION_KEY));
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabId>('configs');
 
   const [settings, setSettings] = useState<GlobalSettingsType>({
     resend_api_key: "",
@@ -228,42 +231,52 @@ function App() {
         {error && <Alert type="error" message={error} />}
         {notice && <Alert type="success" message={notice} />}
 
-        <GlobalSettings
-          settings={settings}
-          onSettingsChange={setSettings}
-          onSave={saveSettings}
-          loading={loading}
-        />
+        <TabBar activeTab={activeTab} onTabChange={setActiveTab} />
 
-        <SourceManager
-          sources={sources}
-          onSourcesChange={loadSources}
-          apiFetch={apiFetch}
-          setError={setError}
-          setNotice={setNotice}
-        />
+        {activeTab === 'settings' && (
+          <GlobalSettings
+            settings={settings}
+            onSettingsChange={setSettings}
+            onSave={saveSettings}
+            loading={loading}
+          />
+        )}
 
-        <ConfigSetList
-          configSets={configSets}
-          configForm={configForm}
-          editMode={editMode}
-          loading={loading}
-          onConfigFormChange={setConfigForm}
-          onSaveConfig={saveConfigSet}
-          onCancelEdit={cancelEdit}
-          onStartEdit={startEdit}
-          onNewConfig={() => setEditMode(true)}
-          onRunConfig={triggerRun}
-          onDeleteConfig={deleteConfigSet}
-        />
+        {activeTab === 'sources' && (
+          <SourceManager
+            sources={sources}
+            onSourcesChange={loadSources}
+            apiFetch={apiFetch}
+            setError={setError}
+            setNotice={setNotice}
+          />
+        )}
 
-        <RunHistory
-          runs={runs}
-          onRefresh={loadRuns}
-          onDeleteOne={deleteRun}
-          onDeleteMultiple={deleteRuns}
-          onDeleteAll={deleteAllRuns}
-        />
+        {activeTab === 'configs' && (
+          <ConfigSetList
+            configSets={configSets}
+            configForm={configForm}
+            editMode={editMode}
+            loading={loading}
+            onConfigFormChange={setConfigForm}
+            onSaveConfig={saveConfigSet}
+            onCancelEdit={cancelEdit}
+            onStartEdit={startEdit}
+            onNewConfig={() => setEditMode(true)}
+            onRunConfig={triggerRun}
+            onDeleteConfig={deleteConfigSet}
+          />
+        )}
+
+        {activeTab === 'history' && (
+          <RunHistory
+            runs={runs}
+            onRefresh={loadRuns}
+            onDeleteOne={deleteRun}
+            onDeleteMultiple={deleteRuns}
+            onDeleteAll={deleteAllRuns}
+          />
+        )}
       </main>
     </div>
   );
