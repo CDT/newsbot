@@ -11,7 +11,9 @@ type GlobalSettingsProps = {
 export function GlobalSettings({ settings, onSettingsChange, onSave, loading }: GlobalSettingsProps) {
   return (
     <section className="card">
-      <h2>Global Settings</h2>
+      <div className="card-header">
+        <h2 style={{ marginBottom: 0 }}>Global Settings</h2>
+      </div>
       <form onSubmit={onSave}>
         <div className="form-row">
           <div className="form-group">

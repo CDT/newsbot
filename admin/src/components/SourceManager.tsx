@@ -299,41 +299,47 @@ type SourceCardProps = {
 
 function SourceCard({ source, onEdit, onDelete, onTest, testing }: SourceCardProps) {
   return (
-    <div className="config-card">
-      <div className="config-card-header">
-        <div className="config-card-title">{source.name}</div>
-        <span className={`badge ${source.enabled ? "badge-success" : "badge-default"}`}>
-          <span className="badge-dot" />
-          {source.enabled ? "Active" : "Inactive"}
-        </span>
+    <div className="source-card">
+      <div className="source-card-header">
+        <div className="source-card-title-row">
+          <span className="source-card-icon">
+            {source.type === "rss" ? <Icons.Rss /> : <Icons.Globe />}
+          </span>
+          <div className="source-card-title">{source.name}</div>
+        </div>
+        <div className="source-card-badges">
+          <span className="badge badge-primary">{source.type.toUpperCase()}</span>
+          <span className={`badge ${source.enabled ? "badge-success" : "badge-default"}`}>
+            <span className="badge-dot" />
+            {source.enabled ? "Active" : "Inactive"}
+          </span>
+        </div>
       </div>
 
-      <div className="config-card-meta">
-        <div className="config-card-meta-item">
-          <span className="icon">{source.type === "rss" ? <Icons.Rss /> : <Icons.Globe />}</span>
-          {source.type.toUpperCase()}
-        </div>
-        <div className="config-card-meta-item source-url">
-          <span className="icon"><Icons.ExternalLink /></span>
-          <code>{source.url}</code>
-        </div>
-        {source.items_path && (
-          <div className="config-card-meta-item">
-            <span className="icon"><Icons.Zap /></span>
-            Path: <code>{source.items_path}</code>
-          </div>
-        )}
+      <div className="source-card-url">
+        <Icons.ExternalLink />
+        <a href={source.url} target="_blank" rel="noopener noreferrer" title={source.url}>
+          {source.url}
+        </a>
       </div>
 
-      {source.last_tested_at && (
-        <div className={`source-test-status ${source.last_test_status === "success" ? "success" : "error"}`}>
-          {source.last_test_status === "success" ? <Icons.Check /> : <Icons.AlertCircle />}
-          <span>{source.last_test_message}</span>
-          <span className="test-date">{new Date(source.last_tested_at).toLocaleString()}</span>
+      {source.items_path && (
+        <div className="source-card-path">
+          <Icons.Zap />
+          <span>Path:</span>
+          <code>{source.items_path}</code>
         </div>
       )}
 
-      <div className="config-card-actions">
+      {source.last_tested_at && (
+        <div className={`source-test-badge ${source.last_test_status === "success" ? "success" : "error"}`}>
+          {source.last_test_status === "success" ? <Icons.Check /> : <Icons.AlertCircle />}
+          <span className="source-test-badge-text">{source.last_test_message}</span>
+          <span className="source-test-badge-date">{new Date(source.last_tested_at).toLocaleString()}</span>
+        </div>
+      )}
+
+      <div className="source-card-actions">
         <button className="btn btn-secondary btn-sm" onClick={onTest} disabled={testing}>
           {testing ? <Icons.Loader /> : <Icons.Play />} Test
         </button>

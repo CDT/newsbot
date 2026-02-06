@@ -27,7 +27,7 @@ export function ConfigSetForm({
   }
 
   return (
-    <form onSubmit={onSave} style={{ marginBottom: "24px", padding: "20px", background: "#f8fafc", borderRadius: "12px" }}>
+    <form onSubmit={onSave} className="config-set-form">
       <div className="form-row">
         <div className="form-group">
           <label>Name</label>
@@ -70,43 +70,23 @@ export function ConfigSetForm({
             <span className="label-hint">({configForm.source_ids.length} selected)</span>
           </label>
           {sources.length === 0 ? (
-            <p style={{ color: "#94a3b8", fontSize: "0.875rem", margin: 0 }}>
+            <p className="source-picker-empty">
               No sources available. Add sources in the Sources tab first.
             </p>
           ) : (
-            <div style={{
-              maxHeight: "180px",
-              overflowY: "auto",
-              border: "1px solid #e2e8f0",
-              borderRadius: "8px",
-              background: "#fff",
-            }}>
+            <div className="source-picker">
               {sources.map((source) => (
                 <label
                   key={source.id}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "8px",
-                    padding: "8px 12px",
-                    cursor: "pointer",
-                    borderBottom: "1px solid #f1f5f9",
-                    fontSize: "0.875rem",
-                    background: configForm.source_ids.includes(source.id)
-                      ? "#f0f9ff"
-                      : "transparent",
-                  }}
+                  className={`source-picker-item ${configForm.source_ids.includes(source.id) ? "selected" : ""}`}
                 >
                   <input
                     type="checkbox"
                     checked={configForm.source_ids.includes(source.id)}
                     onChange={() => toggleSource(source.id)}
-                    style={{ accentColor: "#3b82f6" }}
                   />
-                  <span style={{ fontWeight: 500 }}>{source.name}</span>
-                  <span style={{ color: "#94a3b8", fontSize: "0.75rem", marginLeft: "auto" }}>
-                    {source.type.toUpperCase()}
-                  </span>
+                  <span className="source-picker-name">{source.name}</span>
+                  <span className="source-picker-type">{source.type.toUpperCase()}</span>
                 </label>
               ))}
             </div>
@@ -126,7 +106,7 @@ export function ConfigSetForm({
         </div>
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px", flexWrap: "wrap" }}>
+      <div className="form-footer">
         <div className="toggle-wrapper">
           <div
             className={`toggle ${configForm.enabled ? "active" : ""}`}
