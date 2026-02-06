@@ -14,12 +14,11 @@
       "type": "node",
       "request": "attach",
       "port": 9229,
-      "cwd": "${workspaceFolder}/api",
+      "cwd": "/",
       "resolveSourceMapLocations": null,
       "attachExistingChildren": false,
       "autoAttachChildProcesses": false,
       "sourceMaps": true,
-      "pauseForSourceMap": true,
       "preLaunchTask": "dev:api"
     }
   ]
