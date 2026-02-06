@@ -1,8 +1,9 @@
 import { Icons } from "../Icons";
-import type { ConfigSet } from "../types";
+import type { ConfigSet, Source } from "../types";
 
 type ConfigSetFormProps = {
   configForm: ConfigSet;
+  sources: Source[];
   onConfigFormChange: (config: ConfigSet) => void;
   onSave: (event: React.FormEvent) => void;
   onCancel: () => void;
@@ -11,11 +12,20 @@ type ConfigSetFormProps = {
 
 export function ConfigSetForm({
   configForm,
+  sources,
   onConfigFormChange,
   onSave,
   onCancel,
   loading,
 }: ConfigSetFormProps) {
+  function toggleSource(sourceId: number) {
+    const current = configForm.source_ids;
+    const next = current.includes(sourceId)
+      ? current.filter((id) => id !== sourceId)
+      : [...current, sourceId];
+    onConfigFormChange({ ...configForm, source_ids: next });
+  }
+
   return (
     <form onSubmit={onSave} style={{ marginBottom: "24px", padding: "20px", background: "#f8fafc", borderRadius: "12px" }}>
       <div className="form-row">
@@ -57,14 +67,50 @@ export function ConfigSetForm({
         <div className="form-group">
           <label>
             Sources
-            <span className="label-hint">(JSON array of RSS/URLs)</span>
+            <span className="label-hint">({configForm.source_ids.length} selected)</span>
           </label>
-          <textarea
-            className="code"
-            placeholder='["https://example.com/feed.xml"]'
-            value={configForm.sources_json}
-            onChange={(event) => onConfigFormChange({ ...configForm, sources_json: event.target.value })}
-          />
+          {sources.length === 0 ? (
+            <p style={{ color: "#94a3b8", fontSize: "0.875rem", margin: 0 }}>
+              No sources available. Add sources in the Sources tab first.
+            </p>
+          ) : (
+            <div style={{
+              maxHeight: "180px",
+              overflowY: "auto",
+              border: "1px solid #e2e8f0",
+              borderRadius: "8px",
+              background: "#fff",
+            }}>
+              {sources.map((source) => (
+                <label
+                  key={source.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    padding: "8px 12px",
+                    cursor: "pointer",
+                    borderBottom: "1px solid #f1f5f9",
+                    fontSize: "0.875rem",
+                    background: configForm.source_ids.includes(source.id)
+                      ? "#f0f9ff"
+                      : "transparent",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={configForm.source_ids.includes(source.id)}
+                    onChange={() => toggleSource(source.id)}
+                    style={{ accentColor: "#3b82f6" }}
+                  />
+                  <span style={{ fontWeight: 500 }}>{source.name}</span>
+                  <span style={{ color: "#94a3b8", fontSize: "0.75rem", marginLeft: "auto" }}>
+                    {source.type.toUpperCase()}
+                  </span>
+                </label>
+              ))}
+            </div>
+          )}
         </div>
         <div className="form-group">
           <label>

@@ -37,7 +37,7 @@ function App() {
       enabled: 0,
       schedule_cron: "0 8 * * *",
       prompt: "Summarize these items for a daily briefing.",
-      sources_json: "[]",
+      source_ids: [],
       recipients_json: "[]",
     }),
     []
@@ -258,6 +258,7 @@ function App() {
             configForm={configForm}
             editMode={editMode}
             loading={loading}
+            sources={sources}
             onConfigFormChange={setConfigForm}
             onSaveConfig={saveConfigSet}
             onCancelEdit={cancelEdit}

@@ -18,7 +18,6 @@ export type ConfigSet = {
   enabled: number;
   schedule_cron: string;
   prompt: string;
-  sources_json: string;
   recipients_json: string;
 };
 
@@ -26,12 +25,6 @@ export type GlobalSettings = {
   resend_api_key: string | null;
   gemini_api_key: string | null;
   default_sender: string | null;
-};
-
-export type SourceConfig = {
-  type: string;
-  url: string;
-  items_path?: string;
 };
 
 export type Source = {

@@ -10,7 +10,7 @@ type ConfigSetCardProps = {
 };
 
 export function ConfigSetCard({ config, onEdit, onRun, onDelete }: ConfigSetCardProps) {
-  const sourcesCount = safeParseJsonArray(config.sources_json).length;
+  const sourcesCount = config.source_ids.length;
   const recipientsCount = safeParseJsonArray(config.recipients_json).length;
 
   return (

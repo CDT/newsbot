@@ -14,7 +14,6 @@ CREATE TABLE IF NOT EXISTS config_set (
   enabled INTEGER NOT NULL DEFAULT 0,
   schedule_cron TEXT NOT NULL,
   prompt TEXT NOT NULL,
-  sources_json TEXT NOT NULL,
   recipients_json TEXT NOT NULL
 );
 
@@ -48,6 +47,14 @@ CREATE TABLE IF NOT EXISTS source (
 
 CREATE INDEX IF NOT EXISTS idx_source_enabled ON source(enabled);
 CREATE INDEX IF NOT EXISTS idx_source_type ON source(type);
+
+CREATE TABLE IF NOT EXISTS config_set_source (
+  config_set_id INTEGER NOT NULL,
+  source_id INTEGER NOT NULL,
+  PRIMARY KEY (config_set_id, source_id),
+  FOREIGN KEY (config_set_id) REFERENCES config_set(id) ON DELETE CASCADE,
+  FOREIGN KEY (source_id) REFERENCES source(id) ON DELETE CASCADE
+);
 
 -- To apply these migrations to your D1 database using Wrangler, run:
 -- wrangler d1 execute newsbot --file db/migrations.sql --remote

@@ -1,5 +1,5 @@
 import { Icons } from "../Icons";
-import type { ConfigSet } from "../types";
+import type { ConfigSet, Source } from "../types";
 import { ConfigSetCard } from "./ConfigSetCard";
 import { ConfigSetForm } from "./ConfigSetForm";
 
@@ -8,6 +8,7 @@ type ConfigSetListProps = {
   configForm: ConfigSet;
   editMode: boolean;
   loading: boolean;
+  sources: Source[];
   onConfigFormChange: (config: ConfigSet) => void;
   onSaveConfig: (event: React.FormEvent) => void;
   onCancelEdit: () => void;
@@ -22,6 +23,7 @@ export function ConfigSetList({
   configForm,
   editMode,
   loading,
+  sources,
   onConfigFormChange,
   onSaveConfig,
   onCancelEdit,
@@ -44,6 +46,7 @@ export function ConfigSetList({
       {editMode && (
         <ConfigSetForm
           configForm={configForm}
+          sources={sources}
           onConfigFormChange={onConfigFormChange}
           onSave={onSaveConfig}
           onCancel={onCancelEdit}

@@ -10,7 +10,7 @@ export type ConfigSet = {
   enabled: number;
   schedule_cron: string;
   prompt: string;
-  sources_json: string;
+  source_ids: number[];
   recipients_json: string;
 };
 

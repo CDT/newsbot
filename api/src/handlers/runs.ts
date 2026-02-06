@@ -5,9 +5,19 @@ import { fetchRssItems, fetchApiItems, dedupeItems } from '../services/sources';
 import { summarizeWithGemini } from '../services/gemini';
 import { buildEmailHtml, sendResendEmail } from '../services/email';
 
+async function getConfigSources(db: D1Database, configSetId: number): Promise<Source[]> {
+  const rows = await db
+    .prepare(
+      'SELECT s.* FROM source s JOIN config_set_source css ON s.id = css.source_id WHERE css.config_set_id = ? AND s.enabled = 1'
+    )
+    .bind(configSetId)
+    .all<Source>();
+  return rows.results ?? [];
+}
+
 export async function handleRunConfigSet(env: Env, id: number): Promise<Response> {
   const config = await env.DB.prepare(
-    'SELECT id, name, enabled, schedule_cron, prompt, sources_json, recipients_json FROM config_set WHERE id = ?'
+    'SELECT id, name, enabled, schedule_cron, prompt, recipients_json FROM config_set WHERE id = ?'
   )
     .bind(id)
     .first<ConfigSet>();
@@ -56,7 +66,7 @@ export async function handleDeleteAllRuns(env: Env): Promise<Response> {
 
 export async function getEnabledConfigSets(env: Env, cron: string): Promise<ConfigSet[]> {
   const rows = await env.DB.prepare(
-    'SELECT id, name, enabled, schedule_cron, prompt, sources_json, recipients_json FROM config_set WHERE enabled = 1 AND schedule_cron = ?'
+    'SELECT id, name, enabled, schedule_cron, prompt, recipients_json FROM config_set WHERE enabled = 1 AND schedule_cron = ?'
   )
     .bind(cron)
     .all<ConfigSet>();
@@ -81,7 +91,7 @@ export async function runConfigSet(env: Env, config: ConfigSet): Promise<void> {
       throw new Error('Global settings missing API keys or sender.');
     }
 
-    const sources = safeParseJsonArray<Source>(config.sources_json);
+    const sources = await getConfigSources(env.DB, config.id);
     const recipients = safeParseJsonArray<string>(config.recipients_json);
 
     const items: NewsItem[] = [];
@@ -89,7 +99,7 @@ export async function runConfigSet(env: Env, config: ConfigSet): Promise<void> {
       if (source.type === 'rss') {
         items.push(...(await fetchRssItems(source.url)));
       } else if (source.type === 'api') {
-        items.push(...(await fetchApiItems(source.url, source.items_path)));
+        items.push(...(await fetchApiItems(source.url, source.items_path ?? undefined)));
       }
     }
 
