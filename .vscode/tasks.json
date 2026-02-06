@@ -16,6 +16,25 @@
           "endsPattern": "Local:.*http"
         }
       }
+    },
+    {
+      "label": "dev:api",
+      "type": "shell",
+      "command": "npx wrangler dev --inspector-port 9229",
+      "options": {
+        "cwd": "${workspaceFolder}/api"
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "pattern": {
+          "regexp": "^$"
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "wrangler",
+          "endsPattern": "Ready on"
+        }
+      }
     }
   ]
 }

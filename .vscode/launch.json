@@ -12,10 +12,13 @@
     {
       "name": "API (Wrangler)",
       "type": "node",
-      "request": "launch",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev:api", "--", "--remote"],
-      "console": "integratedTerminal"
+      "request": "attach",
+      "port": 9229,
+      "cwd": "${workspaceFolder}",
+      "resolveSourceMapLocations": null,
+      "attachExistingChildren": false,
+      "autoAttachChildProcesses": false,
+      "preLaunchTask": "dev:api"
     }
   ]
 }
