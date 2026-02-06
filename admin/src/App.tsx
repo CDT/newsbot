@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { GlobalSettings as GlobalSettingsType, ConfigSet, RunLog, Source } from "./types";
 import { useApi } from "./hooks/useApi";
 import { SESSION_KEY } from "./utils";
@@ -20,6 +20,7 @@ function App() {
   const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>('configs');
+  const [tabLoading, setTabLoading] = useState<Partial<Record<TabId, boolean>>>({});
 
   const [settings, setSettings] = useState<GlobalSettingsType>({
     resend_api_key: "",
@@ -47,6 +48,18 @@ function App() {
 
   const { apiFetch } = useApi(token);
 
+  const withTabLoading = useCallback(
+    <T,>(tab: TabId, fn: () => Promise<T>) => async () => {
+      setTabLoading((prev) => ({ ...prev, [tab]: true }));
+      try {
+        return await fn();
+      } finally {
+        setTabLoading((prev) => ({ ...prev, [tab]: false }));
+      }
+    },
+    []
+  );
+
   // Auto-dismiss notices
   useEffect(() => {
     if (notice) {
@@ -61,27 +74,35 @@ function App() {
   }, [token]);
 
   async function loadSettings() {
-    const data = (await apiFetch("/api/global-settings")) as GlobalSettingsType;
-    setSettings({
-      resend_api_key: data.resend_api_key ?? "",
-      gemini_api_key: data.gemini_api_key ?? "",
-      default_sender: data.default_sender ?? "",
-    });
+    return withTabLoading("settings", async () => {
+      const data = (await apiFetch("/api/global-settings")) as GlobalSettingsType;
+      setSettings({
+        resend_api_key: data.resend_api_key ?? "",
+        gemini_api_key: data.gemini_api_key ?? "",
+        default_sender: data.default_sender ?? "",
+      });
+    })();
   }
 
   async function loadConfigSets() {
-    const data = (await apiFetch("/api/config-sets")) as ConfigSet[];
-    setConfigSets(data);
+    return withTabLoading("configs", async () => {
+      const data = (await apiFetch("/api/config-sets")) as ConfigSet[];
+      setConfigSets(data);
+    })();
   }
 
   async function loadRuns() {
-    const data = (await apiFetch("/api/runs")) as RunLog[];
-    setRuns(data);
+    return withTabLoading("history", async () => {
+      const data = (await apiFetch("/api/runs")) as RunLog[];
+      setRuns(data);
+    })();
   }
 
   async function loadSources() {
-    const data = (await apiFetch("/api/sources")) as Source[];
-    setSources(data);
+    return withTabLoading("sources", async () => {
+      const data = (await apiFetch("/api/sources")) as Source[];
+      setSources(data);
+    })();
   }
 
   async function saveSettings(event: React.FormEvent) {
@@ -231,7 +252,7 @@ function App() {
         {error && <Alert type="error" message={error} />}
         {notice && <Alert type="success" message={notice} />}
 
-        <TabBar activeTab={activeTab} onTabChange={setActiveTab} />
+        <TabBar activeTab={activeTab} onTabChange={setActiveTab} loadingTabs={tabLoading} />
 
         {activeTab === 'settings' && (
           <GlobalSettings

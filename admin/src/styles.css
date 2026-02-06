@@ -210,6 +210,11 @@ body {
   );
 }
 
+.tab-item svg {
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
 /* ===== Typography ===== */
 h1,
 h2,

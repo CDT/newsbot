@@ -1,3 +1,5 @@
+import { Icons } from "../Icons";
+
 export type TabId = 'settings' | 'sources' | 'configs' | 'history';
 
 interface Tab {
@@ -15,9 +17,10 @@ const tabs: Tab[] = [
 interface TabBarProps {
   activeTab: TabId;
   onTabChange: (tab: TabId) => void;
+  loadingTabs?: Partial<Record<TabId, boolean>>;
 }
 
-export function TabBar({ activeTab, onTabChange }: TabBarProps) {
+export function TabBar({ activeTab, onTabChange, loadingTabs = {} }: TabBarProps) {
   return (
     <nav className="tab-bar">
       {tabs.map((tab) => (
@@ -27,6 +30,7 @@ export function TabBar({ activeTab, onTabChange }: TabBarProps) {
           onClick={() => onTabChange(tab.id)}
         >
           {tab.label}
+          {loadingTabs[tab.id] && <Icons.Loader />}
         </button>
       ))}
     </nav>
