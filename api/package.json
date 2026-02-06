@@ -11,5 +11,8 @@
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20240729.0",
     "typescript": "^5.5.4"
+  },
+  "dependencies": {
+    "fast-xml-parser": "^5.3.4"
   }
 }

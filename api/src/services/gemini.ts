@@ -25,6 +25,7 @@ export async function summarizeWithGemini(
 
   if (!response.ok) {
     const errorBody = await response.text();
+    console.error(`[summarizeWithGemini] Gemini API failed (${response.status}):`, errorBody);
     throw new Error(`Gemini summarization failed (${response.status}): ${errorBody}`);
   }
 
@@ -33,6 +34,7 @@ export async function summarizeWithGemini(
   };
   const summary = data.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!summary) {
+    console.error('[summarizeWithGemini] Gemini response missing summary. Full response:', JSON.stringify(data));
     throw new Error('Gemini response missing summary');
   }
 

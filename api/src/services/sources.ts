@@ -1,87 +1,101 @@
+import { XMLParser } from 'fast-xml-parser';
 import type { NewsItem } from '../types';
 import { getPathValue } from '../utils/parsing';
 
-// DOMParser is available in Cloudflare Workers runtime
-declare const DOMParser: {
-  new (): {
-    parseFromString(text: string, type: string): Document;
-  };
-};
+const xmlParser = new XMLParser({
+  ignoreAttributes: false,
+  attributeNamePrefix: '@_',
+  isArray: (_name, jpath) => {
+    // Ensure items, entries, and links are always arrays
+    return /\.(item|entry|link)$/.test(jpath);
+  },
+  trimValues: true,
+});
 
-interface Document {
-  querySelectorAll(selector: string): Element[];
-}
-
-interface Element {
-  querySelector(selector: string): Element | null;
-  querySelectorAll(selector: string): Element[];
-  getAttribute(name: string): string | null;
-  textContent: string | null;
-}
+const FETCH_HEADERS = { 'User-Agent': 'newsbot/1.0' };
 
 export async function fetchRssItems(url: string): Promise<NewsItem[]> {
-  const response = await fetch(url);
+  const response = await fetch(url, {
+    headers: FETCH_HEADERS,
+  });
   if (!response.ok) {
-    throw new Error(`RSS fetch failed: ${url}`);
+    const body = await response.text().catch(() => '');
+    console.error(`[fetchRssItems] RSS fetch failed: ${url} (HTTP ${response.status}):`, body.slice(0, 500));
+    throw new Error(
+      `RSS fetch failed: ${url} (HTTP ${response.status} ${response.statusText})${body ? ' — ' + body.slice(0, 200) : ''}`
+    );
   }
   const text = await response.text();
-  const doc = new DOMParser().parseFromString(text, 'application/xml');
+  const parsed = xmlParser.parse(text);
 
-  // Try RSS format first (looks for <item> elements)
-  const rssItems = doc.querySelectorAll('item');
-  if (rssItems.length > 0) {
+  // Try RSS format first (looks for rss > channel > item)
+  const rssItems: unknown[] | undefined =
+    parsed?.rss?.channel?.item ?? parsed?.rdf?.item;
+  if (rssItems && rssItems.length > 0) {
     return parseRssItems(rssItems);
   }
 
-  // Try Atom format (looks for <entry> elements)
-  const atomEntries = doc.querySelectorAll('entry');
-  if (atomEntries.length > 0) {
+  // Try Atom format (looks for feed > entry)
+  const atomEntries: unknown[] | undefined = parsed?.feed?.entry;
+  if (atomEntries && atomEntries.length > 0) {
     return parseAtomEntries(atomEntries);
   }
 
   return [];
 }
 
-function parseRssItems(items: Element[]): NewsItem[] {
-  return items
+interface RssItemRaw {
+  title?: string;
+  link?: string;
+  pubDate?: string;
+  description?: string;
+}
+
+function parseRssItems(items: unknown[]): NewsItem[] {
+  return (items as RssItemRaw[])
     .map((item) => ({
-      title: item.querySelector('title')?.textContent?.trim() ?? 'Untitled',
-      url: item.querySelector('link')?.textContent?.trim() ?? '',
-      publishedAt: item.querySelector('pubDate')?.textContent?.trim() ?? undefined,
-      summary: item.querySelector('description')?.textContent?.trim() ?? undefined,
+      title: str(item.title) ?? 'Untitled',
+      url: str(item.link) ?? '',
+      publishedAt: str(item.pubDate) ?? undefined,
+      summary: str(item.description) ?? undefined,
     }))
     .filter((item) => item.url);
 }
 
-function parseAtomEntries(entries: Element[]): NewsItem[] {
-  return entries
+interface AtomLinkRaw {
+  '@_href'?: string;
+  '@_rel'?: string;
+}
+
+interface AtomEntryRaw {
+  title?: string | { '#text'?: string };
+  link?: AtomLinkRaw[];
+  published?: string;
+  updated?: string;
+  summary?: string | { '#text'?: string };
+  content?: string | { '#text'?: string };
+}
+
+function parseAtomEntries(entries: unknown[]): NewsItem[] {
+  return (entries as AtomEntryRaw[])
     .map((entry) => {
       // Atom links use href attribute; prefer rel="alternate" or first link
-      const links = entry.querySelectorAll('link');
+      const links = entry.link ?? [];
       let url = '';
       for (const link of links) {
-        const rel = link.getAttribute('rel');
-        const href = link.getAttribute('href');
-        if (href && (rel === 'alternate' || rel === null || !url)) {
+        const href = link['@_href'];
+        const rel = link['@_rel'];
+        if (href && (rel === 'alternate' || !rel || !url)) {
           url = href;
           if (rel === 'alternate') break;
         }
       }
 
-      // Atom uses <published> or <updated> for dates
-      const publishedAt =
-        entry.querySelector('published')?.textContent?.trim() ??
-        entry.querySelector('updated')?.textContent?.trim() ??
-        undefined;
-
-      // Atom uses <summary> or <content> for description
-      const summary =
-        entry.querySelector('summary')?.textContent?.trim() ??
-        entry.querySelector('content')?.textContent?.trim() ??
-        undefined;
+      const publishedAt = str(entry.published) ?? str(entry.updated) ?? undefined;
+      const summary = textOf(entry.summary) ?? textOf(entry.content) ?? undefined;
 
       return {
-        title: entry.querySelector('title')?.textContent?.trim() ?? 'Untitled',
+        title: textOf(entry.title) ?? 'Untitled',
         url,
         publishedAt,
         summary,
@@ -90,14 +104,37 @@ function parseAtomEntries(entries: Element[]): NewsItem[] {
     .filter((item) => item.url);
 }
 
+/** Coerce a value to a trimmed string, or null if empty/missing. */
+function str(v: unknown): string | null {
+  if (v == null) return null;
+  const s = String(v).trim();
+  return s || null;
+}
+
+/** Extract text from a value that may be a plain string or { '#text': string }. */
+function textOf(v: unknown): string | null {
+  if (v == null) return null;
+  if (typeof v === 'object' && v !== null && '#text' in v) {
+    return str((v as Record<string, unknown>)['#text']);
+  }
+  return str(v);
+}
+
 export async function fetchApiItems(url: string, itemsPath?: string): Promise<NewsItem[]> {
-  const response = await fetch(url);
+  const response = await fetch(url, {
+    headers: FETCH_HEADERS,
+  });
   if (!response.ok) {
-    throw new Error(`API fetch failed: ${url}`);
+    const body = await response.text().catch(() => '');
+    console.error(`[fetchApiItems] API fetch failed: ${url} (HTTP ${response.status}):`, body.slice(0, 500));
+    throw new Error(
+      `API fetch failed: ${url} (HTTP ${response.status} ${response.statusText})${body ? ' — ' + body.slice(0, 200) : ''}`
+    );
   }
   const data = await response.json();
   const items = itemsPath ? getPathValue(data, itemsPath) : data;
   if (!Array.isArray(items)) {
+    console.error(`[fetchApiItems] Response is not an array for ${url}. Got:`, typeof items, JSON.stringify(items).slice(0, 300));
     throw new Error(`API response did not return an array for ${url}`);
   }
   return items

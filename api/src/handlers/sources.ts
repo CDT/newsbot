@@ -153,6 +153,7 @@ async function testSourceFetch(
       sample_items: items.slice(0, 3),
     };
   } catch (err) {
+    console.error('[testSourceFetch] Error:', err);
     return {
       success: false,
       error: err instanceof Error ? err.message : 'Unknown error occurred',

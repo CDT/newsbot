@@ -109,6 +109,7 @@ export async function runConfigSet(env: Env, config: ConfigSet): Promise<void> {
       .bind('sent', deduped.length, emailId, runId)
       .run();
   } catch (error) {
+    console.error(`[runConfigSet] Config set ${config.id} ("${config.name}") failed:`, error);
     const message = error instanceof Error ? error.message : 'Unknown error';
     await env.DB.prepare('UPDATE run_log SET status = ?, error_message = ? WHERE id = ?')
       .bind('error', message, runId)

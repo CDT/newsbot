@@ -39,11 +39,16 @@ export async function sendResendEmail(
   });
 
   if (!response.ok) {
-    throw new Error('Resend API failed');
+    const errorBody = await response.text().catch(() => '');
+    console.error(`[sendResendEmail] Resend API failed (${response.status}):`, errorBody);
+    throw new Error(
+      `Resend API failed (HTTP ${response.status} ${response.statusText})${errorBody ? ' — ' + errorBody.slice(0, 300) : ''}`
+    );
   }
 
   const data = (await response.json()) as { id?: string };
   if (!data.id) {
+    console.error('[sendResendEmail] Resend API response missing email id:', data);
     throw new Error('Resend API missing email id');
   }
 

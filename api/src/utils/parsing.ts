@@ -4,12 +4,13 @@
 export function safeParseJsonArray<T>(jsonString: string): T[] {
   try {
     return JSON.parse(jsonString);
-  } catch {
+  } catch (err) {
     // Try converting single quotes to double quotes (Python-style arrays)
     try {
       const converted = jsonString.replace(/'/g, '"');
       return JSON.parse(converted);
-    } catch {
+    } catch (err2) {
+      console.error('[safeParseJsonArray] Failed to parse JSON array:', jsonString.slice(0, 200), err2);
       return [];
     }
   }
