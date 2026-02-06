@@ -48,3 +48,6 @@ CREATE TABLE IF NOT EXISTS source (
 
 CREATE INDEX IF NOT EXISTS idx_source_enabled ON source(enabled);
 CREATE INDEX IF NOT EXISTS idx_source_type ON source(type);
+
+-- To apply these migrations to your D1 database using Wrangler, run:
+-- wrangler d1 execute newsbot --file db/migrations.sql --remote

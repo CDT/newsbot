@@ -20,7 +20,7 @@
     {
       "label": "dev:api",
       "type": "shell",
-      "command": "npx wrangler dev --remote --inspector-port 9229",
+      "command": "npx wrangler dev --inspector-port 9229",
       "options": {
         "cwd": "${workspaceFolder}/api"
       },
