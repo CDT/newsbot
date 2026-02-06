@@ -5,13 +5,10 @@ A minimal news-digest system using Cloudflare Pages + Workers + D1, with Gemini 
 ## Repo structure
 
 ```
-/apps
-  /admin  -> Cloudflare Pages frontend (Vite + React)
-  /api    -> Cloudflare Worker API + scheduler
+/admin  -> Cloudflare Pages frontend (Vite + React)
+/api    -> Cloudflare Worker API + scheduler
 /db
   migrations.sql
-.github/workflows
-  deploy-worker.yml
 wrangler.toml
 ```
 
@@ -44,13 +41,13 @@ wrangler.toml
 
 4. Deploy the Worker:
    ```sh
-   cd apps/api
+   cd api
    npm install
    npm run deploy
    ```
 
 5. Deploy the admin UI on Cloudflare Pages:
-   - Set the root directory to `apps/admin`
+   - Set the root directory to `admin`
    - Build command: `npm install && npm run build`
    - Output directory: `dist`
 

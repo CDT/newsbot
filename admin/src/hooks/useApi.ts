@@ -10,8 +10,11 @@ export function useApi(token: string | null) {
       }
       const response = await fetch(path, { ...options, headers });
       if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data.error || "Request failed");
+        const data = await response.json().catch(() => null);
+        const detail =
+          (data && typeof data === "object" && "error" in data && data.error) ||
+          `Request failed (${response.status} ${response.statusText})`;
+        throw new Error(String(detail));
       }
       return response.json();
     },

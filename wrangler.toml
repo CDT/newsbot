@@ -1,5 +1,5 @@
 name = "newsbot-api"
-main = "apps/api/src/index.ts"
+main = "api/src/index.ts"
 compatibility_date = "2024-08-30"
 
 [[d1_databases]]

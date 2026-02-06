@@ -2,8 +2,8 @@
   "name": "newsbot",
   "private": true,
   "workspaces": [
-    "apps/admin",
-    "apps/api"
+    "admin",
+    "api"
   ],
   "scripts": {
     "dev:admin": "npm run dev -w newsbot-admin",

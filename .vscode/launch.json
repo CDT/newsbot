@@ -1,0 +1,21 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Admin (Chrome)",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:5173",
+      "webRoot": "${workspaceFolder}/admin",
+      "preLaunchTask": "dev:admin"
+    },
+    {
+      "name": "API (Wrangler)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:api", "--", "--remote"],
+      "console": "integratedTerminal"
+    }
+  ]
+}
