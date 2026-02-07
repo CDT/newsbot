@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { GlobalSettings as GlobalSettingsType, ConfigSet, RunLog, Source } from "./types";
 import { useApi } from "./hooks/useApi";
+import { useTheme } from "./hooks/useTheme";
 import { SESSION_KEY } from "./utils";
 import {
   Alert,
@@ -47,6 +48,7 @@ function App() {
   const [editMode, setEditMode] = useState(false);
 
   const { apiFetch } = useApi(token);
+  const { theme, toggleTheme } = useTheme();
 
   const withTabLoading = useCallback(
     <T,>(tab: TabId, fn: () => Promise<T>) => async () => {
@@ -241,7 +243,7 @@ function App() {
     <div className="app-container">
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
 
-      <Header onLogout={logout} />
+      <Header onLogout={logout} theme={theme} onToggleTheme={toggleTheme} />
 
       <main className="app-main">
         {error && <Alert type="error" message={error} />}
