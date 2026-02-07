@@ -650,6 +650,15 @@ select {
   margin-top: auto;
 }
 
+.config-card-error {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  font-size: 0.82rem;
+  color: var(--color-danger-700);
+}
+
 /* ===== Run History ===== */
 .run-item {
   display: flex;

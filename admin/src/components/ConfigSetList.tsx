@@ -14,7 +14,7 @@ type ConfigSetListProps = {
   onCancelEdit: () => void;
   onStartEdit: (config: ConfigSet) => void;
   onNewConfig: () => void;
-  onRunConfig: (id: number) => void;
+  onRunConfig: (id: number) => Promise<void>;
   onDeleteConfig: (id: number) => void;
 };
 

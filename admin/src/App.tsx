@@ -166,15 +166,10 @@ function App() {
   }
 
   async function triggerRun(id: number) {
-    setError(null);
     setNotice(null);
-    try {
-      await apiFetch(`/api/run/${id}`, { method: "POST" });
-      setNotice("Run started successfully");
-      await loadRuns();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to run config set");
-    }
+    await apiFetch(`/api/run/${id}`, { method: "POST" });
+    setNotice("Run started successfully");
+    await loadRuns();
   }
 
   async function deleteRun(id: number) {

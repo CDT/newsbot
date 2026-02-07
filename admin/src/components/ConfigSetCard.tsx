@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Icons } from "../Icons";
 import type { ConfigSet } from "../types";
 import { safeParseJsonArray } from "../utils";
@@ -5,13 +6,27 @@ import { safeParseJsonArray } from "../utils";
 type ConfigSetCardProps = {
   config: ConfigSet;
   onEdit: (config: ConfigSet) => void;
-  onRun: (id: number) => void;
+  onRun: (id: number) => Promise<void>;
   onDelete: (id: number) => void;
 };
 
 export function ConfigSetCard({ config, onEdit, onRun, onDelete }: ConfigSetCardProps) {
+  const [running, setRunning] = useState(false);
+  const [runError, setRunError] = useState<string | null>(null);
   const sourcesCount = config.source_ids.length;
   const recipientsCount = safeParseJsonArray(config.recipients_json).length;
+
+  async function handleRun() {
+    setRunning(true);
+    setRunError(null);
+    try {
+      await onRun(config.id);
+    } catch (err) {
+      setRunError(err instanceof Error ? err.message : "Failed to run config set");
+    } finally {
+      setRunning(false);
+    }
+  }
 
   return (
     <div className="config-card">
@@ -42,13 +57,19 @@ export function ConfigSetCard({ config, onEdit, onRun, onDelete }: ConfigSetCard
         <button className="btn btn-secondary btn-sm" onClick={() => onEdit(config)}>
           <Icons.Edit /> Edit
         </button>
-        <button className="btn btn-success btn-sm" onClick={() => onRun(config.id)}>
-          <Icons.Play /> Run Now
+        <button className="btn btn-success btn-sm" disabled={running} onClick={handleRun}>
+          {running ? <Icons.Loader /> : <Icons.Play />} {running ? "Running..." : "Run Now"}
         </button>
         <button className="btn btn-danger btn-sm" onClick={() => onDelete(config.id)}>
           <Icons.Trash /> Delete
         </button>
       </div>
+
+      {runError && (
+        <div className="config-card-error">
+          <Icons.AlertCircle /> {runError}
+        </div>
+      )}
     </div>
   );
 }

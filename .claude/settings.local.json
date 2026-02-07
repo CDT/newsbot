@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(ls -la \"D:\\\\dev\\\\newsbot\\\\apps\"\" 2>/dev/null || echo \"apps directory check failed \")"
+      "Bash(ls -la \"D:\\\\dev\\\\newsbot\\\\apps\"\" 2>/dev/null || echo \"apps directory check failed \")",
+      "Bash(npm run build:*)"
     ]
   }
 }
