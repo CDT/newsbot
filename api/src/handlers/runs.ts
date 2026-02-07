@@ -2,7 +2,7 @@ import type { Env, ConfigSet, GlobalSettings, NewsItem, Source } from '../types'
 import { jsonResponse } from '../utils/response';
 import { safeParseJsonArray } from '../utils/parsing';
 import { fetchRssItems, fetchApiItems, dedupeItems } from '../services/sources';
-import { summarizeWithGemini } from '../services/gemini';
+import { summarize } from '../services/llm';
 import { buildEmailHtml, sendResendEmail } from '../services/email';
 
 async function getConfigSources(db: D1Database, configSetId: number): Promise<Source[]> {
@@ -89,10 +89,10 @@ export async function runConfigSet(env: Env, config: ConfigSet): Promise<void> {
 
   try {
     const settings = await env.DB.prepare(
-      'SELECT resend_api_key, gemini_api_key, default_sender FROM global_settings WHERE id = 1'
+      'SELECT resend_api_key, llm_provider, llm_api_key, llm_model, default_sender FROM global_settings WHERE id = 1'
     ).first<GlobalSettings>();
 
-    if (!settings?.resend_api_key || !settings?.gemini_api_key || !settings?.default_sender) {
+    if (!settings?.resend_api_key || !settings?.llm_api_key || !settings?.default_sender) {
       throw new Error('Global settings missing API keys or sender.');
     }
 
@@ -109,7 +109,7 @@ export async function runConfigSet(env: Env, config: ConfigSet): Promise<void> {
     }
 
     const deduped = dedupeItems(items);
-    const summary = await summarizeWithGemini(deduped, config.prompt, settings.gemini_api_key);
+    const summary = await summarize(deduped, config.prompt, settings.llm_provider, settings.llm_api_key, settings.llm_model);
     const html = buildEmailHtml(config.name, summary, deduped);
 
     const emailId = await sendResendEmail(

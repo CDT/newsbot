@@ -21,9 +21,13 @@ export type ConfigSet = {
   recipients_json: string;
 };
 
+export type LlmProvider = 'gemini' | 'deepseek' | 'openai' | 'anthropic';
+
 export type GlobalSettings = {
   resend_api_key: string | null;
-  gemini_api_key: string | null;
+  llm_provider: LlmProvider;
+  llm_api_key: string | null;
+  llm_model: string | null;
   default_sender: string | null;
 };
 

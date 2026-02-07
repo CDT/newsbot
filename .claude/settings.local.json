@@ -5,7 +5,10 @@
       "Bash(npm run build:*)",
       "Bash(dir:*)",
       "Bash(npx tsc:*)",
-      "Bash(npx vite build:*)"
+      "Bash(npx vite build:*)",
+      "Bash(del \"c:\\\\dev\\\\newsbot\\\\api\\\\src\\\\services\\\\gemini.ts\")",
+      "Bash(npm run lint:*)",
+      "Bash(npm run build:admin:*)"
     ]
   }
 }

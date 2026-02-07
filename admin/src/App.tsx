@@ -25,7 +25,9 @@ function App() {
 
   const [settings, setSettings] = useState<GlobalSettingsType>({
     resend_api_key: "",
-    gemini_api_key: "",
+    llm_provider: "gemini",
+    llm_api_key: "",
+    llm_model: null,
     default_sender: "",
   });
   const [configSets, setConfigSets] = useState<ConfigSet[]>([]);
@@ -80,7 +82,9 @@ function App() {
       const data = (await apiFetch("/api/global-settings")) as GlobalSettingsType;
       setSettings({
         resend_api_key: data.resend_api_key ?? "",
-        gemini_api_key: data.gemini_api_key ?? "",
+        llm_provider: data.llm_provider ?? "gemini",
+        llm_api_key: data.llm_api_key ?? "",
+        llm_model: data.llm_model ?? null,
         default_sender: data.default_sender ?? "",
       });
     })();

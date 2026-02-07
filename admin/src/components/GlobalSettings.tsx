@@ -1,5 +1,19 @@
 import { Icons } from "../Icons";
-import type { GlobalSettings as GlobalSettingsType } from "../types";
+import type { GlobalSettings as GlobalSettingsType, LlmProvider } from "../types";
+
+const LLM_PROVIDERS: { value: LlmProvider; label: string; placeholder: string }[] = [
+  { value: "gemini", label: "Google Gemini", placeholder: "AIza..." },
+  { value: "deepseek", label: "DeepSeek", placeholder: "sk-..." },
+  { value: "openai", label: "OpenAI", placeholder: "sk-..." },
+  { value: "anthropic", label: "Anthropic", placeholder: "sk-ant-..." },
+];
+
+const DEFAULT_MODELS: Record<LlmProvider, string> = {
+  gemini: "gemini-2.0-flash",
+  deepseek: "deepseek-chat",
+  openai: "gpt-4o-mini",
+  anthropic: "claude-sonnet-4-5-20250929",
+};
 
 type GlobalSettingsProps = {
   settings: GlobalSettingsType;
@@ -9,6 +23,8 @@ type GlobalSettingsProps = {
 };
 
 export function GlobalSettings({ settings, onSettingsChange, onSave, loading }: GlobalSettingsProps) {
+  const currentProvider = LLM_PROVIDERS.find((p) => p.value === settings.llm_provider) ?? LLM_PROVIDERS[0];
+
   return (
     <section className="card">
       <div className="card-header">
@@ -30,14 +46,48 @@ export function GlobalSettings({ settings, onSettingsChange, onSave, loading }: 
           </div>
           <div className="form-group">
             <label>
-              Gemini API Key
+              LLM Provider
               <span className="label-hint">(for AI summaries)</span>
+            </label>
+            <select
+              value={settings.llm_provider ?? "gemini"}
+              onChange={(event) => {
+                const provider = event.target.value as LlmProvider;
+                onSettingsChange({
+                  ...settings,
+                  llm_provider: provider,
+                  llm_model: DEFAULT_MODELS[provider],
+                });
+              }}
+            >
+              {LLM_PROVIDERS.map((p) => (
+                <option key={p.value} value={p.value}>{p.label}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div className="form-row">
+          <div className="form-group">
+            <label>
+              {currentProvider.label} API Key
             </label>
             <input
               type="password"
-              placeholder="AIza..."
-              value={settings.gemini_api_key ?? ""}
-              onChange={(event) => onSettingsChange({ ...settings, gemini_api_key: event.target.value })}
+              placeholder={currentProvider.placeholder}
+              value={settings.llm_api_key ?? ""}
+              onChange={(event) => onSettingsChange({ ...settings, llm_api_key: event.target.value })}
+            />
+          </div>
+          <div className="form-group">
+            <label>
+              Model
+              <span className="label-hint">(leave empty for default)</span>
+            </label>
+            <input
+              type="text"
+              placeholder={DEFAULT_MODELS[settings.llm_provider ?? "gemini"]}
+              value={settings.llm_model ?? ""}
+              onChange={(event) => onSettingsChange({ ...settings, llm_model: event.target.value || null })}
             />
           </div>
         </div>
