@@ -306,6 +306,19 @@ body {
   vertical-align: middle;
 }
 
+.tab-reload {
+  margin-left: 6px;
+  opacity: 0.7;
+  cursor: pointer;
+  display: inline-flex;
+  vertical-align: middle;
+  transition: opacity var(--transition-fast);
+}
+
+.tab-reload:hover {
+  opacity: 1;
+}
+
 /* ===== Typography ===== */
 h1,
 h2,

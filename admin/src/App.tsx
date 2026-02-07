@@ -107,6 +107,16 @@ function App() {
     })();
   }
 
+  function reloadTab(tab: TabId) {
+    const loaders: Record<TabId, () => Promise<void>> = {
+      settings: loadSettings,
+      sources: loadSources,
+      configs: loadConfigSets,
+      history: loadRuns,
+    };
+    loaders[tab]();
+  }
+
   async function saveSettings(event: React.FormEvent) {
     event.preventDefault();
     setError(null);
@@ -249,7 +259,7 @@ function App() {
         {error && <Alert type="error" message={error} />}
         {notice && <Alert type="success" message={notice} />}
 
-        <TabBar activeTab={activeTab} onTabChange={setActiveTab} loadingTabs={tabLoading} />
+        <TabBar activeTab={activeTab} onTabChange={setActiveTab} onReload={reloadTab} loadingTabs={tabLoading} />
 
         {activeTab === 'settings' && (
           <GlobalSettings
@@ -290,7 +300,6 @@ function App() {
         {activeTab === 'history' && (
           <RunHistory
             runs={runs}
-            onRefresh={loadRuns}
             onDeleteOne={deleteRun}
             onDeleteMultiple={deleteRuns}
             onDeleteAll={deleteAllRuns}

@@ -5,7 +5,6 @@ import { RunItem } from "./RunItem";
 
 type RunHistoryProps = {
   runs: RunLog[];
-  onRefresh: () => void;
   onDeleteOne: (id: number) => void;
   onDeleteMultiple: (ids: number[]) => void;
   onDeleteAll: () => void;
@@ -13,7 +12,6 @@ type RunHistoryProps = {
 
 export function RunHistory({
   runs,
-  onRefresh,
   onDeleteOne,
   onDeleteMultiple,
   onDeleteAll,
@@ -96,9 +94,6 @@ export function RunHistory({
               </button>
             </>
           )}
-          <button className="btn btn-ghost btn-sm" onClick={onRefresh}>
-            Refresh
-          </button>
         </div>
       </div>
 

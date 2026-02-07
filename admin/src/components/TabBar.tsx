@@ -17,22 +17,37 @@ const tabs: Tab[] = [
 interface TabBarProps {
   activeTab: TabId;
   onTabChange: (tab: TabId) => void;
+  onReload?: (tab: TabId) => void;
   loadingTabs?: Partial<Record<TabId, boolean>>;
 }
 
-export function TabBar({ activeTab, onTabChange, loadingTabs = {} }: TabBarProps) {
+export function TabBar({ activeTab, onTabChange, onReload, loadingTabs = {} }: TabBarProps) {
   return (
     <nav className="tab-bar">
-      {tabs.map((tab) => (
-        <button
-          key={tab.id}
-          className={`tab-item ${activeTab === tab.id ? 'active' : ''}`}
-          onClick={() => onTabChange(tab.id)}
-        >
-          {tab.label}
-          {loadingTabs[tab.id] && <Icons.Loader />}
-        </button>
-      ))}
+      {tabs.map((tab) => {
+        const isActive = activeTab === tab.id;
+        const isLoading = loadingTabs[tab.id];
+        return (
+          <button
+            key={tab.id}
+            className={`tab-item ${isActive ? 'active' : ''}`}
+            onClick={() => onTabChange(tab.id)}
+          >
+            {tab.label}
+            {isLoading && <Icons.Loader />}
+            {isActive && !isLoading && onReload && (
+              <span
+                className="tab-reload"
+                role="button"
+                title={`Reload ${tab.label}`}
+                onClick={(e) => { e.stopPropagation(); onReload(tab.id); }}
+              >
+                <Icons.Refresh />
+              </span>
+            )}
+          </button>
+        );
+      })}
     </nav>
   );
 }
