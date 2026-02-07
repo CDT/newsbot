@@ -32,21 +32,28 @@ wrangler.toml
    wrangler d1 execute newsbot --file db/migrations.sql --remote
    ```
 
-3. Set Worker secrets:
+3. For local development, create a `.dev.vars` file in the project root:
+   ```sh
+   cp .dev.vars.example .dev.vars
+   # Edit .dev.vars with your local values
+   ```
+   This file is gitignored and will be used by `wrangler dev` for local testing.
+
+4. For production, set Worker secrets:
    ```sh
    wrangler secret put ADMIN_USERNAME
    wrangler secret put ADMIN_PASSWORD
    wrangler secret put JWT_SECRET
    ```
 
-4. Deploy the Worker:
+5. Deploy the Worker:
    ```sh
    cd api
    npm install
    npm run deploy
    ```
 
-5. Deploy the admin UI on Cloudflare Pages:
+6. Deploy the admin UI on Cloudflare Pages:
    - Set the root directory to `admin`
    - Build command: `npm install && npm run build`
    - Output directory: `dist`
@@ -80,8 +87,16 @@ Cron triggers are defined in `wrangler.toml`. Match `config_set.schedule_cron` v
 - Pages: set GitHub integration for auto-deploy on main.
 - Worker: GitHub Actions workflow at `.github/workflows/deploy-worker.yml` deploys on merges to main.
 
+## Local Development
+
+- Use `.dev.vars` for local environment variables (already gitignored).
+- Run the API locally: `cd api && npm run dev`
+- Run the admin UI locally: `cd admin && npm run dev`
+- The `.dev.vars` file should contain `ADMIN_USERNAME`, `ADMIN_PASSWORD`, and `JWT_SECRET`.
+
 ## Security notes
 
-- Admin credentials are stored as Worker secrets.
+- Admin credentials are stored as Worker secrets in production.
+- For local dev, use `.dev.vars` (gitignored).
 - JWT is signed with `JWT_SECRET` and stored in an HttpOnly cookie; the UI uses bearer token in local storage.
 - Never expose API keys in frontend environment variables.
