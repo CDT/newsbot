@@ -26,8 +26,13 @@ export async function handleRunConfigSet(env: Env, id: number): Promise<Response
     return jsonResponse({ error: 'Config set not found' }, 404);
   }
 
-  await runConfigSet(env, config);
-  return jsonResponse({ ok: true });
+  try {
+    await runConfigSet(env, config);
+    return jsonResponse({ ok: true });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    return jsonResponse({ error: message }, 500);
+  }
 }
 
 export async function handleListRuns(env: Env): Promise<Response> {
@@ -124,5 +129,6 @@ export async function runConfigSet(env: Env, config: ConfigSet): Promise<void> {
     await env.DB.prepare('UPDATE run_log SET status = ?, error_message = ? WHERE id = ?')
       .bind('error', message, runId)
       .run();
+    throw error;
   }
 }
