@@ -29,12 +29,42 @@ import { jsonResponse } from './utils/response';
 
 export type { Env } from './types';
 
+const CORS_METHODS = 'GET,POST,PUT,DELETE,OPTIONS';
+const CORS_HEADERS = 'content-type, authorization';
+
+function withCors(response: Response, request: Request, env: Env): Response {
+  const pathname = new URL(request.url).pathname;
+  if (!pathname.startsWith('/api')) {
+    return response;
+  }
+
+  const allowOrigin = env.CORS_ORIGIN?.trim() || '*';
+  const headers = new Headers(response.headers);
+  headers.set('access-control-allow-origin', allowOrigin);
+  headers.set('access-control-allow-methods', CORS_METHODS);
+  headers.set('access-control-allow-headers', CORS_HEADERS);
+  headers.set('access-control-max-age', '86400');
+  if (allowOrigin !== '*') {
+    headers.set('vary', 'Origin');
+  }
+
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
 async function handleRequest(
   request: Request,
   env: Env,
   _ctx: ExecutionContext
 ): Promise<Response> {
   const url = new URL(request.url);
+
+  if (url.pathname.startsWith('/api') && request.method === 'OPTIONS') {
+    return new Response(null, { status: 204 });
+  }
 
   if (url.pathname === '/api/login' && request.method === 'POST') {
     return handleLogin(request, env);
@@ -143,11 +173,12 @@ async function handleRequest(
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     try {
-      return await handleRequest(request, env, ctx);
+      const response = await handleRequest(request, env, ctx);
+      return withCors(response, request, env);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Internal server error';
       console.error('Unhandled API error:', message);
-      return jsonResponse({ error: message }, 500);
+      return withCors(jsonResponse({ error: message }, 500), request, env);
     }
   },
 

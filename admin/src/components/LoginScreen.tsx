@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Icons } from "../Icons";
 import { Alert } from "./Alert";
 import { SESSION_KEY } from "../utils";
+import { resolveApiUrl } from "../api";
 
 type LoginScreenProps = {
   onLogin: (token: string) => void;
@@ -17,7 +18,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
     setError(null);
     setLoading(true);
     try {
-      const response = await fetch("/api/login", {
+      const response = await fetch(resolveApiUrl("/api/login"), {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(loginForm),

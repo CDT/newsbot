@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { resolveApiUrl } from "../api";
 
 export function useApi(token: string | null) {
   const apiFetch = useCallback(
@@ -8,7 +9,7 @@ export function useApi(token: string | null) {
       if (token) {
         headers.set("authorization", `Bearer ${token}`);
       }
-      const response = await fetch(path, { ...options, headers });
+      const response = await fetch(resolveApiUrl(path), { ...options, headers });
       if (!response.ok) {
         const data = await response.json().catch(() => null);
         const detail =

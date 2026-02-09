@@ -3,6 +3,7 @@ export interface Env {
   ADMIN_USERNAME: string;
   ADMIN_PASSWORD: string;
   JWT_SECRET: string;
+  CORS_ORIGIN?: string;
 }
 
 export type NewsItem = {

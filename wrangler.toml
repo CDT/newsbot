@@ -13,3 +13,4 @@ crons = ["0 8 * * *", "0 12 * * *", "0 18 * * *"]
 
 [vars]
 # ADMIN_USERNAME, ADMIN_PASSWORD, JWT_SECRET should be set as secrets
+CORS_ORIGIN = "https://06bb9c98.newsbot-f3a.pages.dev"

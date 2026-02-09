@@ -45,6 +45,7 @@ wrangler.toml
    wrangler secret put ADMIN_PASSWORD
    wrangler secret put JWT_SECRET
    ```
+   Set `CORS_ORIGIN` as a Worker variable to your Pages origin (for example `https://newsbot.pages.dev`).
 
 5. Deploy the Worker:
    ```sh
@@ -62,6 +63,7 @@ wrangler.toml
      - Root directory: `admin`
      - Build command: `npm install && npm run build`
      - Output directory: `dist`
+   - If your API is on a Worker domain, set Pages environment variable `VITE_API_BASE_URL` to that Worker base URL (for example `https://newsbot-api.<your-subdomain>.workers.dev`).
 
 ## Usage
 
@@ -95,6 +97,7 @@ Cron triggers are defined in `wrangler.toml`. Match `config_set.schedule_cron` v
 ## Local Development
 
 - Use `.dev.vars` for local environment variables (already gitignored).
+- For admin API base override, copy `admin/.env.example` to `admin/.env` and set `VITE_API_BASE_URL` when needed.
 - Run the API locally: `cd api && npm run dev`
 - Run the admin UI locally: `cd admin && npm run dev`
 - The `.dev.vars` file should contain `ADMIN_USERNAME`, `ADMIN_PASSWORD`, and `JWT_SECRET`.
