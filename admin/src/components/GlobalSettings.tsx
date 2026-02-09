@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Icons } from "../Icons";
 import type { GlobalSettings as GlobalSettingsType, LlmProvider } from "../types";
 
@@ -23,6 +24,8 @@ type GlobalSettingsProps = {
 };
 
 export function GlobalSettings({ settings, onSettingsChange, onSave, loading }: GlobalSettingsProps) {
+  const [showResendKey, setShowResendKey] = useState(false);
+  const [showLlmKey, setShowLlmKey] = useState(false);
   const currentProvider = LLM_PROVIDERS.find((p) => p.value === settings.llm_provider) ?? LLM_PROVIDERS[0];
 
   return (
@@ -37,12 +40,17 @@ export function GlobalSettings({ settings, onSettingsChange, onSave, loading }: 
               Resend API Key
               <span className="label-hint">(for sending emails)</span>
             </label>
-            <input
-              type="password"
-              placeholder="re_..."
-              value={settings.resend_api_key ?? ""}
-              onChange={(event) => onSettingsChange({ ...settings, resend_api_key: event.target.value })}
-            />
+            <div className="password-input-wrapper">
+              <input
+                type={showResendKey ? "text" : "password"}
+                placeholder="re_..."
+                value={settings.resend_api_key ?? ""}
+                onChange={(event) => onSettingsChange({ ...settings, resend_api_key: event.target.value })}
+              />
+              <button type="button" className="password-toggle" onClick={() => setShowResendKey(!showResendKey)}>
+                {showResendKey ? <Icons.EyeOff /> : <Icons.Eye />}
+              </button>
+            </div>
           </div>
           <div className="form-group">
             <label>
@@ -71,12 +79,17 @@ export function GlobalSettings({ settings, onSettingsChange, onSave, loading }: 
             <label>
               {currentProvider.label} API Key
             </label>
-            <input
-              type="password"
-              placeholder={currentProvider.placeholder}
-              value={settings.llm_api_key ?? ""}
-              onChange={(event) => onSettingsChange({ ...settings, llm_api_key: event.target.value })}
-            />
+            <div className="password-input-wrapper">
+              <input
+                type={showLlmKey ? "text" : "password"}
+                placeholder={currentProvider.placeholder}
+                value={settings.llm_api_key ?? ""}
+                onChange={(event) => onSettingsChange({ ...settings, llm_api_key: event.target.value })}
+              />
+              <button type="button" className="password-toggle" onClick={() => setShowLlmKey(!showLlmKey)}>
+                {showLlmKey ? <Icons.EyeOff /> : <Icons.Eye />}
+              </button>
+            </div>
           </div>
           <div className="form-group">
             <label>

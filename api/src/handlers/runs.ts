@@ -110,7 +110,9 @@ export async function runConfigSet(env: Env, config: ConfigSet): Promise<void> {
 
     const deduped = dedupeItems(items);
     const summary = await summarize(deduped, config.prompt, settings.llm_provider, settings.llm_api_key, settings.llm_model);
+    console.log('summary:', summary);
     const html = buildEmailHtml(config.name, summary, deduped);
+    console.log('html:', html);
 
     const emailId = await sendResendEmail(
       settings.resend_api_key,
