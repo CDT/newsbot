@@ -16,6 +16,7 @@ type ConfigSetListProps = {
   onNewConfig: () => void;
   onRunConfig: (id: number) => Promise<void>;
   onDeleteConfig: (id: number) => void;
+  onPolishPrompt: (prompt: string) => Promise<string>;
 };
 
 export function ConfigSetList({
@@ -31,6 +32,7 @@ export function ConfigSetList({
   onNewConfig,
   onRunConfig,
   onDeleteConfig,
+  onPolishPrompt,
 }: ConfigSetListProps) {
   return (
     <section className="card">
@@ -50,6 +52,7 @@ export function ConfigSetList({
           onConfigFormChange={onConfigFormChange}
           onSave={onSaveConfig}
           onCancel={onCancelEdit}
+          onPolishPrompt={onPolishPrompt}
           loading={loading}
         />
       )}

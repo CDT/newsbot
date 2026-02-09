@@ -160,4 +160,19 @@ export const Icons = {
       <line x1="1" y1="1" x2="23" y2="23" />
     </svg>
   ),
+  Wand: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M15 4V2" />
+      <path d="M15 16v-2" />
+      <path d="M8 9h2" />
+      <path d="M20 9h2" />
+      <path d="M17.8 11.8L19 13" />
+      <path d="M15 9h.01" />
+      <path d="M17.8 6.2L19 5" />
+      <path d="M11 6.2L9.8 5" />
+      <path d="M11 11.8L9.8 13" />
+      <path d="m8 21 8-8" />
+      <path d="M3 16l2 2" />
+    </svg>
+  ),
 };

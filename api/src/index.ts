@@ -24,6 +24,7 @@ import {
   handleDeleteSource,
   handleTestSource,
 } from './handlers/sources';
+import { handlePolishPrompt } from './handlers/polish-prompt';
 import { jsonResponse } from './utils/response';
 
 export type { Env } from './types';
@@ -95,6 +96,10 @@ async function handleRequest(
   if (runsMatch && request.method === 'DELETE') {
     const id = Number(runsMatch[1]);
     return handleDeleteRun(env, id);
+  }
+
+  if (url.pathname === '/api/polish-prompt' && request.method === 'POST') {
+    return handlePolishPrompt(request, env);
   }
 
   // Sources endpoints

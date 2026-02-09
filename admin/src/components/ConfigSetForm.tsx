@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Icons } from "../Icons";
 import type { ConfigSet, Source } from "../types";
 
@@ -7,6 +8,7 @@ type ConfigSetFormProps = {
   onConfigFormChange: (config: ConfigSet) => void;
   onSave: (event: React.FormEvent) => void;
   onCancel: () => void;
+  onPolishPrompt: (prompt: string) => Promise<string>;
   loading: boolean;
 };
 
@@ -16,8 +18,32 @@ export function ConfigSetForm({
   onConfigFormChange,
   onSave,
   onCancel,
+  onPolishPrompt,
   loading,
 }: ConfigSetFormProps) {
+  const [polishing, setPolishing] = useState(false);
+  const [prePolishPrompt, setPrePolishPrompt] = useState<string | null>(null);
+
+  async function handlePolish() {
+    setPolishing(true);
+    try {
+      setPrePolishPrompt(configForm.prompt);
+      const polished = await onPolishPrompt(configForm.prompt);
+      onConfigFormChange({ ...configForm, prompt: polished });
+    } catch {
+      setPrePolishPrompt(null);
+    } finally {
+      setPolishing(false);
+    }
+  }
+
+  function handleRestore() {
+    if (prePolishPrompt !== null) {
+      onConfigFormChange({ ...configForm, prompt: prePolishPrompt });
+      setPrePolishPrompt(null);
+    }
+  }
+
   function toggleSource(sourceId: number) {
     const current = configForm.source_ids;
     const next = current.includes(sourceId)
@@ -55,7 +81,32 @@ export function ConfigSetForm({
       </div>
 
       <div className="form-group">
-        <label>Prompt</label>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <label>Prompt</label>
+          <span style={{ display: "flex", gap: "4px" }}>
+            {prePolishPrompt !== null && !polishing && (
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={handleRestore}
+                style={{ fontSize: "0.75rem", padding: "2px 8px", gap: "4px" }}
+              >
+                <Icons.Refresh />
+                Restore
+              </button>
+            )}
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              disabled={!configForm.prompt?.trim() || polishing}
+              onClick={handlePolish}
+              style={{ fontSize: "0.75rem", padding: "2px 8px", gap: "4px" }}
+            >
+              {polishing ? <Icons.Loader /> : <Icons.Wand />}
+              {polishing ? "Polishing..." : "Polish"}
+            </button>
+          </span>
+        </div>
         <textarea
           placeholder="Describe how you want the AI to summarize the news..."
           value={configForm.prompt}

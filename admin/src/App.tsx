@@ -237,6 +237,14 @@ function App() {
     localStorage.removeItem(SESSION_KEY);
   }
 
+  async function polishPrompt(prompt: string): Promise<string> {
+    const data = (await apiFetch("/api/polish-prompt", {
+      method: "POST",
+      body: JSON.stringify({ prompt }),
+    })) as { polished: string };
+    return data.polished;
+  }
+
   function startEdit(config: ConfigSet) {
     setConfigForm(config);
     setEditMode(true);
@@ -298,6 +306,7 @@ function App() {
             onNewConfig={() => setEditMode(true)}
             onRunConfig={triggerRun}
             onDeleteConfig={deleteConfigSet}
+            onPolishPrompt={polishPrompt}
           />
         )}
 
