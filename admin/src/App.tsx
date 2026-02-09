@@ -15,6 +15,11 @@ import {
 } from "./components";
 import type { TabId } from "./components";
 
+function isRunInProgress(status: string): boolean {
+  const normalizedStatus = status.toLowerCase();
+  return !["sent", "success", "error", "failed", "cancelled"].includes(normalizedStatus);
+}
+
 function App() {
   const [token, setToken] = useState(() => localStorage.getItem(SESSION_KEY));
   const [error, setError] = useState<string | null>(null);
@@ -33,6 +38,7 @@ function App() {
   const [configSets, setConfigSets] = useState<ConfigSet[]>([]);
   const [runs, setRuns] = useState<RunLog[]>([]);
   const [sources, setSources] = useState<Source[]>([]);
+  const [runningConfigIds, setRunningConfigIds] = useState<Set<number>>(new Set());
 
   const emptyConfig = useMemo<ConfigSet>(
     () => ({
@@ -51,6 +57,23 @@ function App() {
 
   const { apiFetch } = useApi(token);
   const { theme, toggleTheme } = useTheme();
+  const runningConfigIdsFromRuns = useMemo(() => {
+    const ids = new Set<number>();
+    for (const run of runs) {
+      if (isRunInProgress(run.status)) {
+        ids.add(run.config_set_id);
+      }
+    }
+    return ids;
+  }, [runs]);
+
+  const activeRunningConfigIds = useMemo(() => {
+    const ids = new Set<number>(runningConfigIds);
+    for (const id of runningConfigIdsFromRuns) {
+      ids.add(id);
+    }
+    return ids;
+  }, [runningConfigIds, runningConfigIdsFromRuns]);
 
   const withTabLoading = useCallback(
     <T,>(tab: TabId, fn: () => Promise<T>) => async () => {
@@ -182,10 +205,31 @@ function App() {
   }
 
   async function triggerRun(id: number) {
+    if (activeRunningConfigIds.has(id)) {
+      return;
+    }
+
     setNotice(null);
-    await apiFetch(`/api/run/${id}`, { method: "POST" });
-    setNotice("Run started successfully");
-    await loadRuns();
+    setRunningConfigIds((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+
+    try {
+      await apiFetch(`/api/run/${id}`, { method: "POST" });
+      setNotice("Run started successfully");
+      await loadRuns();
+    } finally {
+      setRunningConfigIds((prev) => {
+        if (!prev.has(id)) {
+          return prev;
+        }
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }
   }
 
   async function deleteRun(id: number) {
@@ -295,6 +339,7 @@ function App() {
         {activeTab === 'configs' && (
           <ConfigSetList
             configSets={configSets}
+            runningConfigIds={activeRunningConfigIds}
             configForm={configForm}
             editMode={editMode}
             loading={loading}

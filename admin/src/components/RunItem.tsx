@@ -10,21 +10,25 @@ type RunItemProps = {
 };
 
 export function RunItem({ run, selected, onSelect, onDelete }: RunItemProps) {
+  const normalizedStatus = run.status.toLowerCase();
+  const isSuccess = normalizedStatus === "sent" || normalizedStatus === "success";
+  const isError = normalizedStatus === "error" || normalizedStatus === "failed";
+
   const getStatusClass = () => {
-    if (run.status === "success") return "success";
-    if (run.status === "error") return "error";
+    if (isSuccess) return "success";
+    if (isError) return "error";
     return "running";
   };
 
   const getStatusIcon = () => {
-    if (run.status === "success") return <Icons.Check />;
-    if (run.status === "error") return <Icons.X />;
+    if (isSuccess) return <Icons.Check />;
+    if (isError) return <Icons.X />;
     return <Icons.Loader />;
   };
 
   const getBadgeClass = () => {
-    if (run.status === "success") return "badge-success";
-    if (run.status === "error") return "badge-danger";
+    if (isSuccess) return "badge-success";
+    if (isError) return "badge-danger";
     return "badge-primary";
   };
 

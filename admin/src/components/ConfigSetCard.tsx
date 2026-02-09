@@ -5,26 +5,24 @@ import { safeParseJsonArray } from "../utils";
 
 type ConfigSetCardProps = {
   config: ConfigSet;
+  running: boolean;
   onEdit: (config: ConfigSet) => void;
   onRun: (id: number) => Promise<void>;
   onDelete: (id: number) => void;
 };
 
-export function ConfigSetCard({ config, onEdit, onRun, onDelete }: ConfigSetCardProps) {
-  const [running, setRunning] = useState(false);
+export function ConfigSetCard({ config, running, onEdit, onRun, onDelete }: ConfigSetCardProps) {
   const [runError, setRunError] = useState<string | null>(null);
   const sourcesCount = config.source_ids.length;
   const recipientsCount = safeParseJsonArray(config.recipients_json).length;
 
   async function handleRun() {
-    setRunning(true);
+    if (running) return;
     setRunError(null);
     try {
       await onRun(config.id);
     } catch (err) {
       setRunError(err instanceof Error ? err.message : "Failed to run config set");
-    } finally {
-      setRunning(false);
     }
   }
 
