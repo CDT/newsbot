@@ -5,6 +5,11 @@ import { fetchRssItems, fetchApiItems, dedupeItems } from '../services/sources';
 import { summarize } from '../services/llm';
 import { buildEmailHtml, buildEmailText, sendResendEmail } from '../services/email';
 
+type RunConfigSetResult = {
+  runId: number;
+  html: string;
+};
+
 async function getConfigSources(db: D1Database, configSetId: number): Promise<Source[]> {
   const rows = await db
     .prepare(
@@ -27,8 +32,8 @@ export async function handleRunConfigSet(env: Env, id: number): Promise<Response
   }
 
   try {
-    await runConfigSet(env, config);
-    return jsonResponse({ ok: true });
+    const result = await runConfigSet(env, config);
+    return jsonResponse({ ok: true, run_id: result.runId, html: result.html });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     return jsonResponse({ error: message }, 500);
@@ -78,16 +83,20 @@ export async function getEnabledConfigSets(env: Env, cron: string): Promise<Conf
   return rows.results ?? [];
 }
 
-export async function runConfigSet(env: Env, config: ConfigSet): Promise<void> {
+export async function runConfigSet(env: Env, config: ConfigSet): Promise<RunConfigSetResult> {
   const startedAt = new Date().toISOString();
   const runInsert = await env.DB.prepare(
     'INSERT INTO run_log (config_set_id, started_at, status, item_count) VALUES (?, ?, ?, ?)'
   )
-    .bind(config.id, startedAt, 'running', 0)
+    .bind(config.id, startedAt, 'Starting run', 0)
     .run();
   const runId = runInsert.meta.last_row_id as number;
+  const updateStatus = async (status: string): Promise<void> => {
+    await env.DB.prepare('UPDATE run_log SET status = ? WHERE id = ?').bind(status, runId).run();
+  };
 
   try {
+    await updateStatus('Loading global settings');
     const settings = await env.DB.prepare(
       'SELECT resend_api_key, llm_provider, llm_api_key, llm_model, default_sender FROM global_settings WHERE id = 1'
     ).first<GlobalSettings>();
@@ -96,22 +105,34 @@ export async function runConfigSet(env: Env, config: ConfigSet): Promise<void> {
       throw new Error('Global settings missing API keys or sender.');
     }
 
+    await updateStatus('Loading sources and recipients');
     const sources = await getConfigSources(env.DB, config.id);
     const recipients = safeParseJsonArray<string>(config.recipients_json);
 
     const items: NewsItem[] = [];
-    for (const source of sources) {
+    for (const [sourceIndex, source] of sources.entries()) {
+      const sourceLabel = source.name?.trim() || source.url;
+      await updateStatus(`Fetching from source [${sourceLabel}] (${sourceIndex + 1}/${sources.length})`);
+
+      let sourceItems: NewsItem[] = [];
       if (source.type === 'rss') {
-        items.push(...(await fetchRssItems(source.url)));
+        sourceItems = await fetchRssItems(source.url);
       } else if (source.type === 'api') {
-        items.push(...(await fetchApiItems(source.url, source.items_path ?? undefined)));
+        sourceItems = await fetchApiItems(source.url, source.items_path ?? undefined);
       }
+      items.push(...sourceItems);
+      await updateStatus(`${items.length} items fetched so far`);
     }
 
+    await updateStatus('Deduplicating fetched items');
     const deduped = dedupeItems(items);
+    await updateStatus(`${deduped.length} unique items fetched`);
+    await updateStatus('Summarizing content');
     const summary = await summarize(deduped, config.prompt, settings.llm_provider, settings.llm_api_key, settings.llm_model);
+    await updateStatus('Generating html');
     const html = buildEmailHtml(config.name, summary, deduped);
     const text = buildEmailText(config.name, summary, deduped);
+    await updateStatus(`Sending email to ${recipients.length} recipient(s)`);
 
     const emailId = await sendResendEmail(
       settings.resend_api_key,
@@ -125,6 +146,7 @@ export async function runConfigSet(env: Env, config: ConfigSet): Promise<void> {
     await env.DB.prepare('UPDATE run_log SET status = ?, item_count = ?, email_id = ? WHERE id = ?')
       .bind('sent', deduped.length, emailId, runId)
       .run();
+    return { runId, html };
   } catch (error) {
     console.error(`[runConfigSet] Config set ${config.id} ("${config.name}") failed:`, error);
     const message = error instanceof Error ? error.message : 'Unknown error';

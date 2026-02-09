@@ -1,11 +1,13 @@
 import { Icons } from "../Icons";
-import type { ConfigSet, Source } from "../types";
+import type { ConfigSet, RunLog, Source } from "../types";
 import { ConfigSetCard } from "./ConfigSetCard";
 import { ConfigSetForm } from "./ConfigSetForm";
 
 type ConfigSetListProps = {
   configSets: ConfigSet[];
   runningConfigIds: ReadonlySet<number>;
+  latestRunsByConfigId: ReadonlyMap<number, RunLog>;
+  generatedEmailHtmlByConfigId: Readonly<Record<number, string>>;
   configForm: ConfigSet;
   editMode: boolean;
   loading: boolean;
@@ -23,6 +25,8 @@ type ConfigSetListProps = {
 export function ConfigSetList({
   configSets,
   runningConfigIds,
+  latestRunsByConfigId,
+  generatedEmailHtmlByConfigId,
   configForm,
   editMode,
   loading,
@@ -74,6 +78,8 @@ export function ConfigSetList({
               key={config.id}
               config={config}
               running={runningConfigIds.has(config.id)}
+              latestRun={latestRunsByConfigId.get(config.id)}
+              generatedEmailHtml={generatedEmailHtmlByConfigId[config.id]}
               onEdit={onStartEdit}
               onRun={onRunConfig}
               onDelete={onDeleteConfig}

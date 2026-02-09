@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { GlobalSettings as GlobalSettingsType, ConfigSet, RunLog, Source } from "./types";
+import type { GlobalSettings as GlobalSettingsType, ConfigSet, RunLog, RunNowResponse, Source } from "./types";
 import { useApi } from "./hooks/useApi";
 import { useTheme } from "./hooks/useTheme";
 import { SESSION_KEY } from "./utils";
@@ -39,6 +39,7 @@ function App() {
   const [runs, setRuns] = useState<RunLog[]>([]);
   const [sources, setSources] = useState<Source[]>([]);
   const [runningConfigIds, setRunningConfigIds] = useState<Set<number>>(new Set());
+  const [generatedEmailHtmlByConfigId, setGeneratedEmailHtmlByConfigId] = useState<Record<number, string>>({});
 
   const emptyConfig = useMemo<ConfigSet>(
     () => ({
@@ -74,6 +75,15 @@ function App() {
     }
     return ids;
   }, [runningConfigIds, runningConfigIdsFromRuns]);
+  const latestRunsByConfigId = useMemo(() => {
+    const byConfig = new Map<number, RunLog>();
+    for (const run of runs) {
+      if (!byConfig.has(run.config_set_id)) {
+        byConfig.set(run.config_set_id, run);
+      }
+    }
+    return byConfig;
+  }, [runs]);
 
   const withTabLoading = useCallback(
     <T,>(tab: TabId, fn: () => Promise<T>) => async () => {
@@ -99,6 +109,32 @@ function App() {
     if (!token) return;
     void Promise.all([loadSettings(), loadConfigSets(), loadRuns(), loadSources()]);
   }, [token]);
+
+  useEffect(() => {
+    if (!token || activeRunningConfigIds.size === 0) return;
+
+    let cancelled = false;
+    const pollRuns = async () => {
+      try {
+        const data = (await apiFetch("/api/runs")) as RunLog[];
+        if (!cancelled) {
+          setRuns(data);
+        }
+      } catch {
+        // Ignore polling errors during active runs.
+      }
+    };
+
+    void pollRuns();
+    const timer = window.setInterval(() => {
+      void pollRuns();
+    }, 2000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [token, activeRunningConfigIds.size, apiFetch]);
 
   async function loadSettings() {
     return withTabLoading("settings", async () => {
@@ -217,8 +253,12 @@ function App() {
     });
 
     try {
-      await apiFetch(`/api/run/${id}`, { method: "POST" });
-      setNotice("Run started successfully");
+      const data = (await apiFetch(`/api/run/${id}`, { method: "POST" })) as RunNowResponse;
+      const generatedHtml = data.html;
+      if (generatedHtml) {
+        setGeneratedEmailHtmlByConfigId((prev) => ({ ...prev, [id]: generatedHtml }));
+      }
+      setNotice("Run completed successfully");
       await loadRuns();
     } finally {
       setRunningConfigIds((prev) => {
@@ -340,6 +380,8 @@ function App() {
           <ConfigSetList
             configSets={configSets}
             runningConfigIds={activeRunningConfigIds}
+            latestRunsByConfigId={latestRunsByConfigId}
+            generatedEmailHtmlByConfigId={generatedEmailHtmlByConfigId}
             configForm={configForm}
             editMode={editMode}
             loading={loading}

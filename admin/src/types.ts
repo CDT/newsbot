@@ -29,6 +29,12 @@ export type RunLog = {
   email_id?: string | null;
 };
 
+export type RunNowResponse = {
+  ok: boolean;
+  run_id?: number;
+  html?: string;
+};
+
 export type Source = {
   id: number;
   name: string;
