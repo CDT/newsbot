@@ -3,7 +3,7 @@ import { jsonResponse } from '../utils/response';
 import { safeParseJsonArray } from '../utils/parsing';
 import { fetchRssItems, fetchApiItems, dedupeItems } from '../services/sources';
 import { summarize } from '../services/llm';
-import { buildEmailHtml, sendResendEmail } from '../services/email';
+import { buildEmailHtml, buildEmailText, sendResendEmail } from '../services/email';
 
 async function getConfigSources(db: D1Database, configSetId: number): Promise<Source[]> {
   const rows = await db
@@ -110,16 +110,16 @@ export async function runConfigSet(env: Env, config: ConfigSet): Promise<void> {
 
     const deduped = dedupeItems(items);
     const summary = await summarize(deduped, config.prompt, settings.llm_provider, settings.llm_api_key, settings.llm_model);
-    console.log('summary:', summary);
     const html = buildEmailHtml(config.name, summary, deduped);
-    console.log('html:', html);
+    const text = buildEmailText(config.name, summary, deduped);
 
     const emailId = await sendResendEmail(
       settings.resend_api_key,
       settings.default_sender,
       recipients,
       `News Digest: ${config.name}`,
-      html
+      html,
+      text
     );
 
     await env.DB.prepare('UPDATE run_log SET status = ?, item_count = ?, email_id = ? WHERE id = ?')
