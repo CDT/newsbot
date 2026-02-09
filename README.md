@@ -54,9 +54,14 @@ wrangler.toml
    ```
 
 6. Deploy the admin UI on Cloudflare Pages:
-   - Set the root directory to `admin`
-   - Build command: `npm install && npm run build`
-   - Output directory: `dist`
+   - Option A (monorepo root):
+     - Root directory: repository root
+     - Build command: `npm install && npm run build`
+     - Output directory: `dist`
+   - Option B (admin subdirectory):
+     - Root directory: `admin`
+     - Build command: `npm install && npm run build`
+     - Output directory: `dist`
 
 ## Usage
 

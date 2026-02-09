@@ -13,6 +13,12 @@ const PUBLISHED_DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
   year: 'numeric',
 });
 
+type SummaryBlock =
+  | { type: 'heading'; text: string }
+  | { type: 'paragraph'; text: string }
+  | { type: 'ul'; items: string[] }
+  | { type: 'ol'; items: string[] };
+
 function normalizeMultilineText(value: string): string {
   return value.replaceAll('\r\n', '\n').trim();
 }
@@ -45,13 +51,147 @@ function formatPublishedDate(value?: string): string | null {
   return PUBLISHED_DATE_FORMATTER.format(parsed);
 }
 
-function splitSummary(summary: string): string[] {
+function renderInlineMarkdown(value: string): string {
+  const links: string[] = [];
+  const withLinkTokens = value.replaceAll(/\[([^\]]+)\]\(([^)]+)\)/g, (_match, label: string, rawHref: string) => {
+    const href = rawHref.trim().split(/\s+/)[0];
+    const token = `@@NEWSBOTLINK${links.length}@@`;
+    links.push(
+      `<a href="${escapeHtml(sanitizeUrl(href))}" style="color:#1d4ed8;text-decoration:underline;">${escapeHtml(
+        label.trim() || href
+      )}</a>`
+    );
+    return token;
+  });
+
+  let rendered = escapeHtml(withLinkTokens)
+    .replaceAll(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replaceAll(/__([^_]+)__/g, '<strong>$1</strong>')
+    .replaceAll(/\*([^*]+)\*/g, '<em>$1</em>')
+    .replaceAll(/_([^_]+)_/g, '<em>$1</em>')
+    .replaceAll(/`([^`]+)`/g, '<code style="font-family:Menlo,Consolas,monospace;background-color:#e2e8f0;border-radius:4px;padding:1px 4px;font-size:0.92em;">$1</code>')
+    .replaceAll(/~~([^~]+)~~/g, '<span style="text-decoration:line-through;">$1</span>');
+
+  links.forEach((linkHtml, index) => {
+    rendered = rendered.replaceAll(`@@NEWSBOTLINK${index}@@`, linkHtml);
+  });
+
+  return rendered;
+}
+
+function parseSummaryBlocks(summary: string): SummaryBlock[] {
   const normalized = normalizeMultilineText(summary);
   if (!normalized) return [];
-  return normalized
-    .split(/\n{2,}/)
-    .map((paragraph) => paragraph.trim())
-    .filter(Boolean);
+
+  const blocks: SummaryBlock[] = [];
+  const lines = normalized.split('\n');
+  let paragraphLines: string[] = [];
+  let unorderedItems: string[] = [];
+  let orderedItems: string[] = [];
+
+  const flushParagraph = (): void => {
+    if (!paragraphLines.length) return;
+    blocks.push({ type: 'paragraph', text: paragraphLines.join(' ') });
+    paragraphLines = [];
+  };
+
+  const flushUnorderedItems = (): void => {
+    if (!unorderedItems.length) return;
+    blocks.push({ type: 'ul', items: unorderedItems });
+    unorderedItems = [];
+  };
+
+  const flushOrderedItems = (): void => {
+    if (!orderedItems.length) return;
+    blocks.push({ type: 'ol', items: orderedItems });
+    orderedItems = [];
+  };
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+
+    if (!line) {
+      flushParagraph();
+      flushUnorderedItems();
+      flushOrderedItems();
+      continue;
+    }
+
+    const headingMatch = line.match(/^#{1,6}\s+(.*)$/);
+    if (headingMatch) {
+      flushParagraph();
+      flushUnorderedItems();
+      flushOrderedItems();
+      if (headingMatch[1].trim()) {
+        blocks.push({ type: 'heading', text: headingMatch[1].trim() });
+      }
+      continue;
+    }
+
+    const unorderedMatch = line.match(/^[-*+]\s+(.*)$/);
+    if (unorderedMatch) {
+      flushParagraph();
+      flushOrderedItems();
+      unorderedItems.push(unorderedMatch[1].trim());
+      continue;
+    }
+
+    const orderedMatch = line.match(/^\d+[.)]\s+(.*)$/);
+    if (orderedMatch) {
+      flushParagraph();
+      flushUnorderedItems();
+      orderedItems.push(orderedMatch[1].trim());
+      continue;
+    }
+
+    flushUnorderedItems();
+    flushOrderedItems();
+    paragraphLines.push(line);
+  }
+
+  flushParagraph();
+  flushUnorderedItems();
+  flushOrderedItems();
+
+  return blocks;
+}
+
+function renderSummaryHtml(summary: string): string {
+  const blocks = parseSummaryBlocks(summary);
+
+  if (!blocks.length) {
+    return '<p style="margin:0;color:#475569;font-size:15px;line-height:1.65;">No summary was generated for this run.</p>';
+  }
+
+  return blocks
+    .map((block) => {
+      if (block.type === 'heading') {
+        return `<p style="margin:0 0 10px;color:#0f172a;font-size:18px;line-height:1.35;font-weight:700;">${renderInlineMarkdown(block.text)}</p>`;
+      }
+
+      if (block.type === 'paragraph') {
+        return `<p style="margin:0 0 12px;color:#1f2937;font-size:15px;line-height:1.65;">${renderInlineMarkdown(block.text)}</p>`;
+      }
+
+      if (block.type === 'ul') {
+        const itemsHtml = block.items
+          .map(
+            (item) =>
+              `<li style="margin:0 0 8px;color:#1f2937;font-size:15px;line-height:1.65;">${renderInlineMarkdown(item)}</li>`
+          )
+          .join('');
+        return `<ul style="margin:0 0 12px 22px;padding:0;">${itemsHtml}</ul>`;
+      }
+
+      const itemsHtml = block.items
+        .map(
+          (item) =>
+            `<li style="margin:0 0 8px;color:#1f2937;font-size:15px;line-height:1.65;">${renderInlineMarkdown(item)}</li>`
+        )
+        .join('');
+      return `<ol style="margin:0 0 12px 22px;padding:0;">${itemsHtml}</ol>`;
+    })
+    .join('');
 }
 
 export function buildEmailHtml(title: string, summary: string, items: NewsItem[]): string {
@@ -61,15 +201,7 @@ export function buildEmailHtml(title: string, summary: string, items: NewsItem[]
     `${oneLineText(title) || 'News Digest'}: ${items.length} article${items.length === 1 ? '' : 's'} ready`
   );
 
-  const summaryParagraphs = splitSummary(summary);
-  const summaryHtml = summaryParagraphs.length
-    ? summaryParagraphs
-        .map(
-          (paragraph) =>
-            `<p style="margin:0 0 12px;color:#1f2937;font-size:15px;line-height:1.65;">${escapeHtml(paragraph)}</p>`
-        )
-        .join('')
-    : '<p style="margin:0;color:#475569;font-size:15px;line-height:1.65;">No summary was generated for this run.</p>';
+  const summaryHtml = renderSummaryHtml(summary);
 
   const articlesHtml = items.length
     ? items

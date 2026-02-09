@@ -8,6 +8,7 @@
   "scripts": {
     "dev:admin": "npm run dev -w newsbot-admin",
     "dev:api": "npm run dev -w newsbot-api",
+    "build": "npm run build:admin && node -e \"const fs=require('node:fs');fs.rmSync('dist',{recursive:true,force:true});fs.cpSync('admin/dist','dist',{recursive:true});\"",
     "build:admin": "npm run build -w newsbot-admin",
     "deploy:api": "npm run deploy -w newsbot-api",
     "lint": "npm run lint -w newsbot-admin && npm run lint -w newsbot-api",
