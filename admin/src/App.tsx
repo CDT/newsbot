@@ -46,6 +46,7 @@ function App() {
     llm_api_key: "",
     llm_model: null,
     default_sender: "",
+    admin_email: "",
   });
   const [configSets, setConfigSets] = useState<ConfigSet[]>([]);
   const [runs, setRuns] = useState<RunLog[]>([]);
@@ -158,6 +159,7 @@ function App() {
         llm_api_key: data.llm_api_key ?? "",
         llm_model: data.llm_model ?? null,
         default_sender: data.default_sender ?? "",
+        admin_email: data.admin_email ?? "",
       });
     })();
   }

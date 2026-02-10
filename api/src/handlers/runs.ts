@@ -1,6 +1,7 @@
 import type { Env, ConfigSet, GlobalSettings, NewsItem, Source } from '../types';
-import { jsonResponse } from '../utils/response';
+import { getGlobalSettings } from '../services/global-settings';
 import { safeParseJsonArray } from '../utils/parsing';
+import { jsonResponse, escapeHtml } from '../utils/response';
 import { fetchRssItems, fetchApiItems, dedupeItems } from '../services/sources';
 import { summarize } from '../services/llm';
 import { buildEmailHtml, buildEmailText, sendResendEmail } from '../services/email';
@@ -11,6 +12,15 @@ const DEFAULT_SOURCE_FETCH_TIMEOUT_SECONDS = 30;
 type RunConfigSetResult = {
   runId: number;
   html: string;
+};
+
+type RunFailureNotification = {
+  runId: number;
+  config: ConfigSet;
+  startedAt: string;
+  failedAt: string;
+  errorMessage: string;
+  errorStack: string | null;
 };
 
 function getRunTimeoutMinutes(env: Env): number {
@@ -50,6 +60,91 @@ async function getConfigSources(db: D1Database, configSetId: number): Promise<So
     .bind(configSetId)
     .all<Source>();
   return rows.results ?? [];
+}
+
+function buildRunFailureEmailText(notification: RunFailureNotification): string {
+  const lines = [
+    'NewsBot run failed',
+    '',
+    `Run ID: ${notification.runId}`,
+    `Config ID: ${notification.config.id}`,
+    `Config Name: ${notification.config.name}`,
+    `Started At (UTC): ${notification.startedAt}`,
+    `Failed At (UTC): ${notification.failedAt}`,
+    '',
+    `Error: ${notification.errorMessage}`,
+  ];
+
+  if (notification.errorStack) {
+    lines.push('', 'Stack Trace:', notification.errorStack);
+  }
+
+  return lines.join('\n');
+}
+
+function buildRunFailureEmailHtml(notification: RunFailureNotification): string {
+  const stackTraceBlock = notification.errorStack
+    ? `<h2 style="margin:24px 0 8px;font-size:16px;color:#0f172a;">Stack Trace</h2>
+       <pre style="margin:0;padding:14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;white-space:pre-wrap;word-break:break-word;font-size:12px;line-height:1.6;color:#1e293b;">${escapeHtml(notification.errorStack)}</pre>`
+    : '';
+
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NewsBot Run Failure</title>
+  </head>
+  <body style="margin:0;padding:0;background:#f1f5f9;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;background:#f1f5f9;">
+      <tr>
+        <td align="center" style="padding:20px;">
+          <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="border-collapse:separate;width:100%;max-width:640px;background:#ffffff;border-radius:14px;overflow:hidden;">
+            <tr>
+              <td style="padding:22px 24px;background:#7f1d1d;color:#ffffff;">
+                <p style="margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;opacity:0.9;">NewsBot Alert</p>
+                <h1 style="margin:0;font-size:24px;line-height:1.3;">Run Failed</h1>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:24px;color:#0f172a;">
+                <p style="margin:0 0 14px;font-size:15px;line-height:1.6;">A scheduled or manual run failed. Details are below.</p>
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+                  <tr><td style="padding:6px 0;font-size:14px;"><strong>Run ID:</strong> ${notification.runId}</td></tr>
+                  <tr><td style="padding:6px 0;font-size:14px;"><strong>Config ID:</strong> ${notification.config.id}</td></tr>
+                  <tr><td style="padding:6px 0;font-size:14px;"><strong>Config Name:</strong> ${escapeHtml(notification.config.name)}</td></tr>
+                  <tr><td style="padding:6px 0;font-size:14px;"><strong>Started At (UTC):</strong> ${escapeHtml(notification.startedAt)}</td></tr>
+                  <tr><td style="padding:6px 0;font-size:14px;"><strong>Failed At (UTC):</strong> ${escapeHtml(notification.failedAt)}</td></tr>
+                </table>
+                <h2 style="margin:20px 0 8px;font-size:16px;color:#0f172a;">Error</h2>
+                <pre style="margin:0;padding:14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;white-space:pre-wrap;word-break:break-word;font-size:12px;line-height:1.6;color:#1e293b;">${escapeHtml(notification.errorMessage)}</pre>
+                ${stackTraceBlock}
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+}
+
+async function sendRunFailureNotification(
+  settings: GlobalSettings | null,
+  notification: RunFailureNotification
+): Promise<void> {
+  const adminEmail = settings?.admin_email?.trim();
+  const resendApiKey = settings?.resend_api_key?.trim();
+  const defaultSender = settings?.default_sender?.trim();
+
+  if (!adminEmail || !resendApiKey || !defaultSender) {
+    return;
+  }
+
+  const subject = `NewsBot Run Failed: ${notification.config.name}`;
+  const text = buildRunFailureEmailText(notification);
+  const html = buildRunFailureEmailHtml(notification);
+  await sendResendEmail(resendApiKey, defaultSender, [adminEmail], subject, html, text);
 }
 
 export async function handleRunConfigSet(env: Env, id: number): Promise<Response> {
@@ -132,12 +227,11 @@ export async function runConfigSet(env: Env, config: ConfigSet): Promise<RunConf
   const updateStatus = async (status: string): Promise<void> => {
     await env.DB.prepare('UPDATE run_log SET status = ? WHERE id = ?').bind(status, runId).run();
   };
+  let settings: GlobalSettings | null = null;
 
   try {
     await updateStatus('Loading global settings');
-    const settings = await env.DB.prepare(
-      'SELECT resend_api_key, llm_provider, llm_api_key, llm_model, default_sender FROM global_settings WHERE id = 1'
-    ).first<GlobalSettings>();
+    settings = await getGlobalSettings(env);
 
     if (!settings?.resend_api_key || !settings?.llm_api_key || !settings?.default_sender) {
       throw new Error('Global settings missing API keys or sender.');
@@ -189,9 +283,30 @@ export async function runConfigSet(env: Env, config: ConfigSet): Promise<RunConf
   } catch (error) {
     console.error(`[runConfigSet] Config set ${config.id} ("${config.name}") failed:`, error);
     const message = error instanceof Error ? error.message : 'Unknown error';
+    const stack = error instanceof Error ? error.stack ?? null : null;
+    const failedAt = new Date().toISOString();
+
     await env.DB.prepare('UPDATE run_log SET status = ?, error_message = ? WHERE id = ?')
       .bind('error', message, runId)
       .run();
+
+    if (!settings) {
+      settings = await getGlobalSettings(env).catch(() => null);
+    }
+
+    try {
+      await sendRunFailureNotification(settings, {
+        runId,
+        config,
+        startedAt,
+        failedAt,
+        errorMessage: message,
+        errorStack: stack,
+      });
+    } catch (notificationError) {
+      console.error(`[runConfigSet] Failed to send failure notification for run ${runId}:`, notificationError);
+    }
+
     throw error;
   }
 }

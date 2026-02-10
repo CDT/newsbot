@@ -6,6 +6,7 @@ export type GlobalSettings = {
   llm_api_key: string | null;
   llm_model: string | null;
   default_sender: string | null;
+  admin_email: string | null;
 };
 
 export type ConfigSet = {

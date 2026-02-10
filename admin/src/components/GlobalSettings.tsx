@@ -117,6 +117,20 @@ export function GlobalSettings({ settings, onSettingsChange, onSave, loading }: 
               onChange={(event) => onSettingsChange({ ...settings, default_sender: event.target.value })}
             />
           </div>
+          <div className="form-group">
+            <label>
+              Admin Email
+              <span className="label-hint">(receives failed run logs)</span>
+            </label>
+            <input
+              type="email"
+              placeholder="admin@yourdomain.com"
+              value={settings.admin_email ?? ""}
+              onChange={(event) => onSettingsChange({ ...settings, admin_email: event.target.value })}
+            />
+          </div>
+        </div>
+        <div className="form-row">
           <div className="form-group" style={{ display: "flex", alignItems: "flex-end" }}>
             <button type="submit" className="btn btn-primary" disabled={loading}>
               {loading ? <><Icons.Loader /> Saving...</> : <><Icons.Settings /> Save Settings</>}

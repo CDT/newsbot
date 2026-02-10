@@ -4,11 +4,12 @@ CREATE TABLE IF NOT EXISTS global_settings (
   llm_provider TEXT NOT NULL DEFAULT 'gemini',
   llm_api_key TEXT,
   llm_model TEXT,
-  default_sender TEXT
+  default_sender TEXT,
+  admin_email TEXT
 );
 
-INSERT OR IGNORE INTO global_settings (id, resend_api_key, llm_provider, llm_api_key, llm_model, default_sender)
-VALUES (1, '', 'gemini', '', NULL, '');
+INSERT OR IGNORE INTO global_settings (id, resend_api_key, llm_provider, llm_api_key, llm_model, default_sender, admin_email)
+VALUES (1, '', 'gemini', '', NULL, '', '');
 
 CREATE TABLE IF NOT EXISTS config_set (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
