@@ -9,7 +9,7 @@ database_id = "0b8914c0-e4a0-44d0-83a6-51b03d5b3a62"
 remote = true
 
 [triggers]
-crons = ["0 8 * * *", "0 12 * * *", "0 18 * * *"]
+crons = ["0 0 * * *", "0 4 * * *", "5 7 * * *", "0 10 * * *"]
 
 [vars]
 # ADMIN_USERNAME, ADMIN_PASSWORD, JWT_SECRET should be set as secrets
