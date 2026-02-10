@@ -5,10 +5,42 @@ import { fetchRssItems, fetchApiItems, dedupeItems } from '../services/sources';
 import { summarize } from '../services/llm';
 import { buildEmailHtml, buildEmailText, sendResendEmail } from '../services/email';
 
+const DEFAULT_RUN_TIMEOUT_MINUTES = 15;
+const DEFAULT_SOURCE_FETCH_TIMEOUT_SECONDS = 30;
+
 type RunConfigSetResult = {
   runId: number;
   html: string;
 };
+
+function getRunTimeoutMinutes(env: Env): number {
+  const parsed = Number.parseInt(env.RUN_TIMEOUT_MINUTES ?? '', 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_RUN_TIMEOUT_MINUTES;
+}
+
+function getSourceFetchTimeoutMs(env: Env): number {
+  const parsed = Number.parseInt(env.SOURCE_FETCH_TIMEOUT_SECONDS ?? '', 10);
+  const timeoutSeconds = Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_SOURCE_FETCH_TIMEOUT_SECONDS;
+  return timeoutSeconds * 1000;
+}
+
+async function markTimedOutRuns(env: Env): Promise<void> {
+  const timeoutMinutes = getRunTimeoutMinutes(env);
+  const timeoutMessage = `Run timed out after ${timeoutMinutes} minute${timeoutMinutes === 1 ? '' : 's'}.`;
+
+  await env.DB.prepare(
+    `UPDATE run_log
+     SET status = 'failed',
+         error_message = CASE
+           WHEN error_message IS NULL OR trim(error_message) = '' THEN ?
+           ELSE error_message
+         END
+     WHERE lower(trim(status)) NOT IN ('sent', 'success', 'error', 'failed', 'cancelled')
+       AND datetime(started_at) <= datetime('now', ?)`
+  )
+    .bind(timeoutMessage, `-${timeoutMinutes} minutes`)
+    .run();
+}
 
 async function getConfigSources(db: D1Database, configSetId: number): Promise<Source[]> {
   const rows = await db
@@ -21,6 +53,8 @@ async function getConfigSources(db: D1Database, configSetId: number): Promise<So
 }
 
 export async function handleRunConfigSet(env: Env, id: number): Promise<Response> {
+  await markTimedOutRuns(env);
+
   const config = await env.DB.prepare(
     'SELECT id, name, enabled, schedule_cron, prompt, recipients_json FROM config_set WHERE id = ?'
   )
@@ -41,6 +75,8 @@ export async function handleRunConfigSet(env: Env, id: number): Promise<Response
 }
 
 export async function handleListRuns(env: Env): Promise<Response> {
+  await markTimedOutRuns(env);
+
   const rows = await env.DB.prepare(
     'SELECT run_log.id, run_log.config_set_id, config_set.name as config_name, run_log.started_at, run_log.status, run_log.item_count, run_log.error_message, run_log.email_id FROM run_log LEFT JOIN config_set ON run_log.config_set_id = config_set.id ORDER BY run_log.id DESC LIMIT 50'
   ).all();
@@ -75,6 +111,8 @@ export async function handleDeleteAllRuns(env: Env): Promise<Response> {
 }
 
 export async function getEnabledConfigSets(env: Env, cron: string): Promise<ConfigSet[]> {
+  await markTimedOutRuns(env);
+
   const rows = await env.DB.prepare(
     'SELECT id, name, enabled, schedule_cron, prompt, recipients_json FROM config_set WHERE enabled = 1 AND schedule_cron = ?'
   )
@@ -108,6 +146,7 @@ export async function runConfigSet(env: Env, config: ConfigSet): Promise<RunConf
     await updateStatus('Loading sources and recipients');
     const sources = await getConfigSources(env.DB, config.id);
     const recipients = safeParseJsonArray<string>(config.recipients_json);
+    const sourceFetchTimeoutMs = getSourceFetchTimeoutMs(env);
 
     const items: NewsItem[] = [];
     for (const [sourceIndex, source] of sources.entries()) {
@@ -116,9 +155,9 @@ export async function runConfigSet(env: Env, config: ConfigSet): Promise<RunConf
 
       let sourceItems: NewsItem[] = [];
       if (source.type === 'rss') {
-        sourceItems = await fetchRssItems(source.url);
+        sourceItems = await fetchRssItems(source.url, sourceFetchTimeoutMs);
       } else if (source.type === 'api') {
-        sourceItems = await fetchApiItems(source.url, source.items_path ?? undefined);
+        sourceItems = await fetchApiItems(source.url, source.items_path ?? undefined, sourceFetchTimeoutMs);
       }
       items.push(...sourceItems);
       await updateStatus(`${items.length} items fetched so far`);

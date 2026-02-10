@@ -15,9 +15,21 @@ import {
 } from "./components";
 import type { TabId } from "./components";
 
-function isRunInProgress(status: string): boolean {
-  const normalizedStatus = status.toLowerCase();
-  return !["sent", "success", "error", "failed", "cancelled"].includes(normalizedStatus);
+const FINAL_RUN_STATUSES = new Set(["sent", "success", "error", "failed", "cancelled"]);
+const RUN_TIMEOUT_MS = 15 * 60 * 1000;
+
+function isRunInProgress(run: RunLog, nowMs = Date.now()): boolean {
+  const normalizedStatus = run.status.trim().toLowerCase();
+  if (FINAL_RUN_STATUSES.has(normalizedStatus)) {
+    return false;
+  }
+
+  const startedAtMs = Date.parse(run.started_at);
+  if (Number.isNaN(startedAtMs)) {
+    return false;
+  }
+
+  return nowMs - startedAtMs < RUN_TIMEOUT_MS;
 }
 
 function App() {
@@ -60,8 +72,9 @@ function App() {
   const { theme, toggleTheme } = useTheme();
   const runningConfigIdsFromRuns = useMemo(() => {
     const ids = new Set<number>();
+    const nowMs = Date.now();
     for (const run of runs) {
-      if (isRunInProgress(run.status)) {
+      if (isRunInProgress(run, nowMs)) {
         ids.add(run.config_set_id);
       }
     }

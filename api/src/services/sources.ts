@@ -14,10 +14,33 @@ const xmlParser = new XMLParser({
 
 const FETCH_HEADERS = { 'User-Agent': 'newsbot/1.0' };
 
-export async function fetchRssItems(url: string): Promise<NewsItem[]> {
-  const response = await fetch(url, {
-    headers: FETCH_HEADERS,
-  });
+const DEFAULT_SOURCE_FETCH_TIMEOUT_MS = 30_000;
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === 'AbortError';
+}
+
+async function fetchWithTimeout(url: string, timeoutMs: number): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(url, {
+      headers: FETCH_HEADERS,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (isAbortError(error)) {
+      throw new Error(`Source fetch timed out after ${Math.ceil(timeoutMs / 1000)}s: ${url}`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+export async function fetchRssItems(url: string, timeoutMs = DEFAULT_SOURCE_FETCH_TIMEOUT_MS): Promise<NewsItem[]> {
+  const response = await fetchWithTimeout(url, timeoutMs);
   if (!response.ok) {
     const body = await response.text().catch(() => '');
     console.error(`[fetchRssItems] RSS fetch failed: ${url} (HTTP ${response.status}):`, body.slice(0, 500));
@@ -120,10 +143,12 @@ function textOf(v: unknown): string | null {
   return str(v);
 }
 
-export async function fetchApiItems(url: string, itemsPath?: string): Promise<NewsItem[]> {
-  const response = await fetch(url, {
-    headers: FETCH_HEADERS,
-  });
+export async function fetchApiItems(
+  url: string,
+  itemsPath?: string,
+  timeoutMs = DEFAULT_SOURCE_FETCH_TIMEOUT_MS
+): Promise<NewsItem[]> {
+  const response = await fetchWithTimeout(url, timeoutMs);
   if (!response.ok) {
     const body = await response.text().catch(() => '');
     console.error(`[fetchApiItems] API fetch failed: ${url} (HTTP ${response.status}):`, body.slice(0, 500));

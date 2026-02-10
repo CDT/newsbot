@@ -4,6 +4,8 @@ export interface Env {
   ADMIN_PASSWORD: string;
   JWT_SECRET: string;
   CORS_ORIGIN?: string;
+  RUN_TIMEOUT_MINUTES?: string;
+  SOURCE_FETCH_TIMEOUT_SECONDS?: string;
 }
 
 export type NewsItem = {
