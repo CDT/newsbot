@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { GlobalSettings as GlobalSettingsType, ConfigSet, RunLog, RunNowResponse, Source } from "./types";
+import type {
+  GlobalSettings as GlobalSettingsType,
+  ConfigSet,
+  RunLog,
+  RunNowResponse,
+  ScheduleOption,
+  Source,
+  SourceTestResult,
+} from "./types";
 import { useApi } from "./hooks/useApi";
 import { useTheme } from "./hooks/useTheme";
 import { SESSION_KEY } from "./utils";
@@ -17,6 +25,11 @@ import type { TabId } from "./components";
 
 const FINAL_RUN_STATUSES = new Set(["sent", "success", "error", "failed", "cancelled"]);
 const RUN_TIMEOUT_MS = 15 * 60 * 1000;
+const FALLBACK_SCHEDULE_OPTIONS: ScheduleOption[] = [
+  { cron: "0 8 * * *", label: "Daily at 08:00 UTC" },
+  { cron: "0 12 * * *", label: "Daily at 12:00 UTC" },
+  { cron: "0 18 * * *", label: "Daily at 18:00 UTC" },
+];
 
 function isRunInProgress(run: RunLog, nowMs = Date.now()): boolean {
   const normalizedStatus = run.status.trim().toLowerCase();
@@ -49,8 +62,11 @@ function App() {
     admin_email: "",
   });
   const [configSets, setConfigSets] = useState<ConfigSet[]>([]);
+  const [scheduleOptions, setScheduleOptions] = useState<ScheduleOption[]>(FALLBACK_SCHEDULE_OPTIONS);
   const [runs, setRuns] = useState<RunLog[]>([]);
   const [sources, setSources] = useState<Source[]>([]);
+  const [sourceTestingId, setSourceTestingId] = useState<number | null>(null);
+  const [sourceTestResult, setSourceTestResult] = useState<SourceTestResult | null>(null);
   const [runningConfigIds, setRunningConfigIds] = useState<Set<number>>(new Set());
   const [generatedEmailHtmlByConfigId, setGeneratedEmailHtmlByConfigId] = useState<Record<number, string>>({});
 
@@ -59,7 +75,7 @@ function App() {
       id: 0,
       name: "",
       enabled: 0,
-      schedule_cron: "0 8 * * *",
+      schedule_cron: FALLBACK_SCHEDULE_OPTIONS[0].cron,
       prompt: "Summarize these items for a daily briefing.",
       source_ids: [],
       recipients_json: "[]",
@@ -121,8 +137,23 @@ function App() {
 
   useEffect(() => {
     if (!token) return;
-    void Promise.all([loadSettings(), loadConfigSets(), loadRuns(), loadSources()]);
+    void Promise.all([loadSettings(), loadConfigSets(), loadRuns(), loadSources(), loadScheduleOptions()]);
   }, [token]);
+
+  useEffect(() => {
+    if (scheduleOptions.length === 0) return;
+    const defaultSchedule = scheduleOptions[0].cron;
+    setConfigForm((prev) => {
+      if (prev.id !== 0) {
+        return prev;
+      }
+      const hasSupportedSchedule = scheduleOptions.some((option) => option.cron === prev.schedule_cron);
+      if (hasSupportedSchedule) {
+        return prev;
+      }
+      return { ...prev, schedule_cron: defaultSchedule };
+    });
+  }, [scheduleOptions]);
 
   useEffect(() => {
     if (!token || activeRunningConfigIds.size === 0) return;
@@ -169,6 +200,27 @@ function App() {
       const data = (await apiFetch("/api/config-sets")) as ConfigSet[];
       setConfigSets(data);
     })();
+  }
+
+  async function loadScheduleOptions() {
+    try {
+      const data = (await apiFetch("/api/meta/schedules")) as { schedules?: ScheduleOption[] };
+      const schedules = Array.isArray(data.schedules)
+        ? data.schedules.filter(
+            (option): option is ScheduleOption =>
+              Boolean(option) &&
+              typeof option.cron === "string" &&
+              option.cron.length > 0 &&
+              typeof option.label === "string" &&
+              option.label.length > 0
+          )
+        : [];
+      if (schedules.length > 0) {
+        setScheduleOptions(schedules);
+      }
+    } catch {
+      // Keep fallback options when schedule metadata endpoint is unavailable.
+    }
   }
 
   async function loadRuns() {
@@ -388,6 +440,10 @@ function App() {
             apiFetch={apiFetch}
             setError={setError}
             setNotice={setNotice}
+            testingId={sourceTestingId}
+            setTestingId={setSourceTestingId}
+            testResult={sourceTestResult}
+            setTestResult={setSourceTestResult}
           />
         )}
 
@@ -398,6 +454,7 @@ function App() {
             latestRunsByConfigId={latestRunsByConfigId}
             generatedEmailHtmlByConfigId={generatedEmailHtmlByConfigId}
             configForm={configForm}
+            scheduleOptions={scheduleOptions}
             editMode={editMode}
             loading={loading}
             sources={sources}

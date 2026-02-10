@@ -19,6 +19,11 @@ export type ConfigSet = {
   recipients_json: string;
 };
 
+export type ScheduleOption = {
+  cron: string;
+  label: string;
+};
+
 export type RunLog = {
   id: number;
   config_set_id: number;

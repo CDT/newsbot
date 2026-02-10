@@ -1,5 +1,5 @@
 import { Icons } from "../Icons";
-import type { ConfigSet, RunLog, Source } from "../types";
+import type { ConfigSet, RunLog, ScheduleOption, Source } from "../types";
 import { ConfigSetCard } from "./ConfigSetCard";
 import { ConfigSetForm } from "./ConfigSetForm";
 
@@ -9,6 +9,7 @@ type ConfigSetListProps = {
   latestRunsByConfigId: ReadonlyMap<number, RunLog>;
   generatedEmailHtmlByConfigId: Readonly<Record<number, string>>;
   configForm: ConfigSet;
+  scheduleOptions: ScheduleOption[];
   editMode: boolean;
   loading: boolean;
   sources: Source[];
@@ -28,6 +29,7 @@ export function ConfigSetList({
   latestRunsByConfigId,
   generatedEmailHtmlByConfigId,
   configForm,
+  scheduleOptions,
   editMode,
   loading,
   sources,
@@ -54,6 +56,7 @@ export function ConfigSetList({
       {editMode && (
         <ConfigSetForm
           configForm={configForm}
+          scheduleOptions={scheduleOptions}
           sources={sources}
           onConfigFormChange={onConfigFormChange}
           onSave={onSaveConfig}

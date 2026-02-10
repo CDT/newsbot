@@ -82,12 +82,14 @@ wrangler.toml
 - `POST /api/config-sets`
 - `PUT /api/config-sets/:id`
 - `DELETE /api/config-sets/:id`
+- `GET /api/meta/schedules`
 - `POST /api/run/:id`
 - `GET /api/runs`
 
 ## Scheduling
 
-Cron triggers are defined in `wrangler.toml`. Match `config_set.schedule_cron` values to the cron strings used by Cloudflare.
+Cron triggers are defined in `wrangler.toml`. The admin UI schedule picker and API validation only allow values that match these Cloudflare cron triggers.
+Use `npm run check:schedules` to verify `wrangler.toml` and backend `ALLOWED_SCHEDULES` stay in sync.
 
 ## Deployment
 

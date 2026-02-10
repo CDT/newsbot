@@ -25,6 +25,7 @@ import {
   handleTestSource,
 } from './handlers/sources';
 import { handlePolishPrompt } from './handlers/polish-prompt';
+import { handleGetScheduleOptions } from './handlers/meta';
 import { jsonResponse } from './utils/response';
 
 export type { Env } from './types';
@@ -130,6 +131,10 @@ async function handleRequest(
 
   if (url.pathname === '/api/polish-prompt' && request.method === 'POST') {
     return handlePolishPrompt(request, env);
+  }
+
+  if (url.pathname === '/api/meta/schedules' && request.method === 'GET') {
+    return handleGetScheduleOptions();
   }
 
   // Sources endpoints

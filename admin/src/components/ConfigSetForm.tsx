@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Icons } from "../Icons";
-import type { ConfigSet, Source } from "../types";
+import type { ConfigSet, ScheduleOption, Source } from "../types";
 
 type ConfigSetFormProps = {
   configForm: ConfigSet;
+  scheduleOptions: ScheduleOption[];
   sources: Source[];
   onConfigFormChange: (config: ConfigSet) => void;
   onSave: (event: React.FormEvent) => void;
@@ -14,6 +15,7 @@ type ConfigSetFormProps = {
 
 export function ConfigSetForm({
   configForm,
+  scheduleOptions,
   sources,
   onConfigFormChange,
   onSave,
@@ -23,6 +25,7 @@ export function ConfigSetForm({
 }: ConfigSetFormProps) {
   const [polishing, setPolishing] = useState(false);
   const [prePolishPrompt, setPrePolishPrompt] = useState<string | null>(null);
+  const hasSelectedSchedule = scheduleOptions.some((option) => option.cron === configForm.schedule_cron);
 
   async function handlePolish() {
     setPolishing(true);
@@ -68,15 +71,27 @@ export function ConfigSetForm({
         <div className="form-group">
           <label>
             Schedule
-            <span className="label-hint">(cron expression)</span>
+            <span className="label-hint">(Cloudflare trigger)</span>
           </label>
-          <input
-            type="text"
-            placeholder="0 8 * * *"
-            value={configForm.schedule_cron}
+          <select
+            value={hasSelectedSchedule ? configForm.schedule_cron : ""}
             onChange={(event) => onConfigFormChange({ ...configForm, schedule_cron: event.target.value })}
             className="text-mono"
-          />
+            required
+          >
+            {!hasSelectedSchedule && (
+              <option value="" disabled>
+                {configForm.schedule_cron
+                  ? `Unsupported schedule: ${configForm.schedule_cron}`
+                  : "Select a schedule"}
+              </option>
+            )}
+            {scheduleOptions.map((option) => (
+              <option key={option.cron} value={option.cron}>
+                {`${option.label} (${option.cron})`}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 

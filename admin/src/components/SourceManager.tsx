@@ -8,6 +8,10 @@ type SourceManagerProps = {
   apiFetch: (path: string, options?: RequestInit) => Promise<unknown>;
   setError: (error: string | null) => void;
   setNotice: (notice: string | null) => void;
+  testingId: number | null;
+  setTestingId: (id: number | null) => void;
+  testResult: SourceTestResult | null;
+  setTestResult: (result: SourceTestResult | null) => void;
 };
 
 const emptySource: Omit<Source, "id" | "created_at" | "last_tested_at" | "last_test_status" | "last_test_message"> = {
@@ -24,13 +28,15 @@ export function SourceManager({
   apiFetch,
   setError,
   setNotice,
+  testingId,
+  setTestingId,
+  testResult,
+  setTestResult,
 }: SourceManagerProps) {
   const [editMode, setEditMode] = useState(false);
   const [sourceForm, setSourceForm] = useState(emptySource);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
-  const [testingId, setTestingId] = useState<number | null>(null);
-  const [testResult, setTestResult] = useState<SourceTestResult | null>(null);
 
   async function handleSave(event: React.FormEvent) {
     event.preventDefault();

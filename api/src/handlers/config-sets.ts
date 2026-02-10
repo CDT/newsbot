@@ -1,7 +1,17 @@
 import type { Env, ConfigSet } from '../types';
+import { ALLOWED_SCHEDULES, isAllowedScheduleCron } from '../constants/schedules';
 import { jsonResponse } from '../utils/response';
 
 type ConfigSetResponse = ConfigSet & { source_ids: number[] };
+
+function normalizeCron(cron: string): string {
+  return cron.trim().replace(/\s+/g, ' ');
+}
+
+function getInvalidScheduleMessage(): string {
+  const allowed = ALLOWED_SCHEDULES.map((option) => option.cron).join(', ');
+  return `Invalid schedule_cron. Allowed values: ${allowed}`;
+}
 
 async function getSourceIds(db: D1Database, configSetId: number): Promise<number[]> {
   const rows = await db
@@ -42,13 +52,17 @@ export async function handleCreateConfigSet(request: Request, env: Env): Promise
   if (!body?.name || !body?.schedule_cron || !body?.prompt) {
     return jsonResponse({ error: 'Missing fields' }, 400);
   }
+  const scheduleCron = normalizeCron(body.schedule_cron);
+  if (!isAllowedScheduleCron(scheduleCron)) {
+    return jsonResponse({ error: getInvalidScheduleMessage() }, 400);
+  }
   const recipients = body.recipients_json ?? '[]';
   const sourceIds = body.source_ids ?? [];
 
   const result = await env.DB.prepare(
     'INSERT INTO config_set (name, enabled, schedule_cron, prompt, recipients_json) VALUES (?, ?, ?, ?, ?)'
   )
-    .bind(body.name, body.enabled ? 1 : 0, body.schedule_cron, body.prompt, recipients)
+    .bind(body.name, body.enabled ? 1 : 0, scheduleCron, body.prompt, recipients)
     .run();
 
   const newId = result.meta.last_row_id as number;
@@ -71,15 +85,23 @@ export async function handleUpdateConfigSet(
   if (!body) {
     return jsonResponse({ error: 'Invalid payload' }, 400);
   }
+  if (!body.name || !body.schedule_cron || !body.prompt) {
+    return jsonResponse({ error: 'Missing fields' }, 400);
+  }
+
+  const scheduleCron = normalizeCron(body.schedule_cron);
+  if (!isAllowedScheduleCron(scheduleCron)) {
+    return jsonResponse({ error: getInvalidScheduleMessage() }, 400);
+  }
 
   await env.DB.prepare(
     'UPDATE config_set SET name = ?, enabled = ?, schedule_cron = ?, prompt = ?, recipients_json = ? WHERE id = ?'
   )
     .bind(
-      body.name ?? '',
+      body.name,
       body.enabled ? 1 : 0,
-      body.schedule_cron ?? '',
-      body.prompt ?? '',
+      scheduleCron,
+      body.prompt,
       body.recipients_json ?? '[]',
       id
     )
