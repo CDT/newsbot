@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS run_log (
   config_set_id INTEGER NOT NULL,
   started_at TEXT NOT NULL,
   status TEXT NOT NULL,
+  status_history_json TEXT NOT NULL DEFAULT '[]',
   item_count INTEGER NOT NULL,
   error_message TEXT,
   email_id TEXT,

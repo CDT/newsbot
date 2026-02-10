@@ -46,6 +46,34 @@ function isRunInProgress(run: RunLog, nowMs = Date.now()): boolean {
   return nowMs - startedAtMs < RUN_TIMEOUT_MS;
 }
 
+function getRunStatusMessages(run: RunLog): string[] {
+  const rawHistory = run.status_history_json;
+  if (typeof rawHistory === "string" && rawHistory.trim().length > 0) {
+    try {
+      const parsed = JSON.parse(rawHistory);
+      if (Array.isArray(parsed)) {
+        const messages = parsed.filter(
+          (value): value is string => typeof value === "string" && value.trim().length > 0
+        );
+        if (messages.length > 0) {
+          return messages;
+        }
+      }
+    } catch {
+      // Fall through to status string fallback.
+    }
+  }
+  return run.status ? [run.status] : [];
+}
+
+function sameMessages(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i += 1) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+}
+
 function App() {
   const [token, setToken] = useState(() => localStorage.getItem(SESSION_KEY));
   const [error, setError] = useState<string | null>(null);
@@ -133,18 +161,18 @@ function App() {
           continue;
         }
 
+        const messages = getRunStatusMessages(latestRun);
         const previous = next[configId];
         if (!previous || previous.runId !== latestRun.id) {
-          next[configId] = { runId: latestRun.id, messages: [latestRun.status] };
+          next[configId] = { runId: latestRun.id, messages };
           changed = true;
           continue;
         }
 
-        const lastMessage = previous.messages[previous.messages.length - 1];
-        if (lastMessage !== latestRun.status) {
+        if (!sameMessages(previous.messages, messages)) {
           next[configId] = {
             runId: previous.runId,
-            messages: [...previous.messages, latestRun.status],
+            messages,
           };
           changed = true;
         }

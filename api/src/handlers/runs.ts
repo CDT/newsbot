@@ -8,6 +8,10 @@ import { buildEmailHtml, buildEmailText, sendResendEmail } from '../services/ema
 
 const DEFAULT_RUN_TIMEOUT_MINUTES = 15;
 const DEFAULT_SOURCE_FETCH_TIMEOUT_SECONDS = 30;
+const RUN_STATUS_HISTORY_DEFAULT = '[]';
+const RUN_FINAL_STATUSES = ['sent', 'success', 'error', 'failed', 'cancelled'] as const;
+
+let runLogSchemaReadyPromise: Promise<void> | null = null;
 
 type RunConfigSetResult = {
   runId: number;
@@ -34,18 +38,62 @@ function getSourceFetchTimeoutMs(env: Env): number {
   return timeoutSeconds * 1000;
 }
 
+async function ensureRunLogSchema(env: Env): Promise<void> {
+  if (!runLogSchemaReadyPromise) {
+    runLogSchemaReadyPromise = (async () => {
+      const columnRows = await env.DB.prepare('PRAGMA table_info(run_log)').all<{
+        name: string;
+      }>();
+      const existingColumns = new Set((columnRows.results ?? []).map((column) => column.name));
+
+      if (!existingColumns.has('status_history_json')) {
+        try {
+          await env.DB.prepare(
+            `ALTER TABLE run_log ADD COLUMN status_history_json TEXT NOT NULL DEFAULT '${RUN_STATUS_HISTORY_DEFAULT}'`
+          ).run();
+        } catch (error) {
+          if (!(error instanceof Error) || !/duplicate column|already exists/i.test(error.message)) {
+            throw error;
+          }
+        }
+      }
+
+      await env.DB.prepare(
+        "UPDATE run_log SET status_history_json = json_array(status) WHERE status_history_json IS NULL OR trim(status_history_json) = ''"
+      ).run();
+    })().catch((error) => {
+      runLogSchemaReadyPromise = null;
+      throw error;
+    });
+  }
+
+  await runLogSchemaReadyPromise;
+}
+
+async function appendRunStatus(env: Env, runId: number, status: string): Promise<void> {
+  await env.DB.prepare(
+    "UPDATE run_log SET status = ?, status_history_json = json_insert(CASE WHEN json_valid(status_history_json) THEN status_history_json ELSE '[]' END, '$[#]', ?) WHERE id = ?"
+  )
+    .bind(status, status, runId)
+    .run();
+}
+
 async function markTimedOutRuns(env: Env): Promise<void> {
+  await ensureRunLogSchema(env);
+
   const timeoutMinutes = getRunTimeoutMinutes(env);
   const timeoutMessage = `Run timed out after ${timeoutMinutes} minute${timeoutMinutes === 1 ? '' : 's'}.`;
+  const finalStatusesInClause = RUN_FINAL_STATUSES.map((status) => `'${status}'`).join(', ');
 
   await env.DB.prepare(
     `UPDATE run_log
      SET status = 'failed',
+         status_history_json = json_insert(CASE WHEN json_valid(status_history_json) THEN status_history_json ELSE '[]' END, '$[#]', 'failed'),
          error_message = CASE
            WHEN error_message IS NULL OR trim(error_message) = '' THEN ?
            ELSE error_message
          END
-     WHERE lower(trim(status)) NOT IN ('sent', 'success', 'error', 'failed', 'cancelled')
+     WHERE lower(trim(status)) NOT IN (${finalStatusesInClause})
        AND datetime(started_at) <= datetime('now', ?)`
   )
     .bind(timeoutMessage, `-${timeoutMinutes} minutes`)
@@ -148,6 +196,7 @@ async function sendRunFailureNotification(
 }
 
 export async function handleRunConfigSet(env: Env, id: number): Promise<Response> {
+  await ensureRunLogSchema(env);
   await markTimedOutRuns(env);
 
   const config = await env.DB.prepare(
@@ -170,10 +219,11 @@ export async function handleRunConfigSet(env: Env, id: number): Promise<Response
 }
 
 export async function handleListRuns(env: Env): Promise<Response> {
+  await ensureRunLogSchema(env);
   await markTimedOutRuns(env);
 
   const rows = await env.DB.prepare(
-    'SELECT run_log.id, run_log.config_set_id, config_set.name as config_name, run_log.started_at, run_log.status, run_log.item_count, run_log.error_message, run_log.email_id FROM run_log LEFT JOIN config_set ON run_log.config_set_id = config_set.id ORDER BY run_log.id DESC LIMIT 50'
+    'SELECT run_log.id, run_log.config_set_id, config_set.name as config_name, run_log.started_at, run_log.status, run_log.status_history_json, run_log.item_count, run_log.error_message, run_log.email_id FROM run_log LEFT JOIN config_set ON run_log.config_set_id = config_set.id ORDER BY run_log.id DESC LIMIT 50'
   ).all();
 
   return jsonResponse(rows.results ?? []);
@@ -206,6 +256,7 @@ export async function handleDeleteAllRuns(env: Env): Promise<Response> {
 }
 
 export async function getEnabledConfigSets(env: Env, cron: string): Promise<ConfigSet[]> {
+  await ensureRunLogSchema(env);
   await markTimedOutRuns(env);
 
   const rows = await env.DB.prepare(
@@ -217,15 +268,17 @@ export async function getEnabledConfigSets(env: Env, cron: string): Promise<Conf
 }
 
 export async function runConfigSet(env: Env, config: ConfigSet): Promise<RunConfigSetResult> {
+  await ensureRunLogSchema(env);
+
   const startedAt = new Date().toISOString();
   const runInsert = await env.DB.prepare(
-    'INSERT INTO run_log (config_set_id, started_at, status, item_count) VALUES (?, ?, ?, ?)'
+    'INSERT INTO run_log (config_set_id, started_at, status, status_history_json, item_count) VALUES (?, ?, ?, json_array(?), ?)'
   )
-    .bind(config.id, startedAt, 'Starting run', 0)
+    .bind(config.id, startedAt, 'Starting run', 'Starting run', 0)
     .run();
   const runId = runInsert.meta.last_row_id as number;
   const updateStatus = async (status: string): Promise<void> => {
-    await env.DB.prepare('UPDATE run_log SET status = ? WHERE id = ?').bind(status, runId).run();
+    await appendRunStatus(env, runId, status);
   };
   let settings: GlobalSettings | null = null;
 
@@ -298,8 +351,10 @@ export async function runConfigSet(env: Env, config: ConfigSet): Promise<RunConf
       text
     );
 
-    await env.DB.prepare('UPDATE run_log SET status = ?, item_count = ?, email_id = ? WHERE id = ?')
-      .bind('sent', deduped.length, emailId, runId)
+    await env.DB.prepare(
+      "UPDATE run_log SET status = ?, status_history_json = json_insert(CASE WHEN json_valid(status_history_json) THEN status_history_json ELSE '[]' END, '$[#]', ?), item_count = ?, email_id = ? WHERE id = ?"
+    )
+      .bind('sent', 'sent', deduped.length, emailId, runId)
       .run();
     return { runId, html };
   } catch (error) {
@@ -308,8 +363,10 @@ export async function runConfigSet(env: Env, config: ConfigSet): Promise<RunConf
     const stack = error instanceof Error ? error.stack ?? null : null;
     const failedAt = new Date().toISOString();
 
-    await env.DB.prepare('UPDATE run_log SET status = ?, error_message = ? WHERE id = ?')
-      .bind('error', message, runId)
+    await env.DB.prepare(
+      "UPDATE run_log SET status = ?, status_history_json = json_insert(CASE WHEN json_valid(status_history_json) THEN status_history_json ELSE '[]' END, '$[#]', ?), error_message = ? WHERE id = ?"
+    )
+      .bind('error', 'error', message, runId)
       .run();
 
     if (!settings) {

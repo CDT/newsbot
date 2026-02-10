@@ -31,6 +31,7 @@ export type RunLog = {
   config_name?: string;
   started_at: string;
   status: string;
+  status_history_json?: string | null;
   item_count: number;
   error_message?: string | null;
   email_id?: string | null;
