@@ -6,7 +6,6 @@ export type ScheduleOption = {
 export const ALLOWED_SCHEDULES: ScheduleOption[] = [
   { cron: '0 0 * * *', label: 'Daily at 08:00 UTC+8 (Wuhan)' },
   { cron: '0 4 * * *', label: 'Daily at 12:00 UTC+8 (Wuhan)' },
-  { cron: '5 7 * * *', label: 'Daily at 15:05 UTC+8 (Wuhan)' },
   { cron: '0 10 * * *', label: 'Daily at 18:00 UTC+8 (Wuhan)' },
 ];
 

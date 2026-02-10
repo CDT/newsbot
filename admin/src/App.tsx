@@ -28,7 +28,6 @@ const RUN_TIMEOUT_MS = 15 * 60 * 1000;
 const FALLBACK_SCHEDULE_OPTIONS: ScheduleOption[] = [
   { cron: "0 0 * * *", label: "Daily at 08:00 UTC+8 (Wuhan)" },
   { cron: "0 4 * * *", label: "Daily at 12:00 UTC+8 (Wuhan)" },
-  { cron: "5 7 * * *", label: "Daily at 15:05 UTC+8 (Wuhan)" },
   { cron: "0 10 * * *", label: "Daily at 18:00 UTC+8 (Wuhan)" },
 ];
 
