@@ -25,6 +25,7 @@ import type { TabId } from "./components";
 
 const FINAL_RUN_STATUSES = new Set(["sent", "success", "error", "failed", "cancelled"]);
 const RUN_TIMEOUT_MS = 15 * 60 * 1000;
+type RunProgressByConfigId = Record<number, { runId: number; messages: string[] }>;
 const FALLBACK_SCHEDULE_OPTIONS: ScheduleOption[] = [
   { cron: "0 0 * * *", label: "Daily at 08:00 UTC+8 (Wuhan)" },
   { cron: "0 4 * * *", label: "Daily at 12:00 UTC+8 (Wuhan)" },
@@ -60,6 +61,7 @@ function App() {
     llm_model: null,
     default_sender: "",
     admin_email: "",
+    source_items_limit: 20,
   });
   const [configSets, setConfigSets] = useState<ConfigSet[]>([]);
   const [scheduleOptions, setScheduleOptions] = useState<ScheduleOption[]>(FALLBACK_SCHEDULE_OPTIONS);
@@ -68,6 +70,7 @@ function App() {
   const [sourceTestingId, setSourceTestingId] = useState<number | null>(null);
   const [sourceTestResult, setSourceTestResult] = useState<SourceTestResult | null>(null);
   const [runningConfigIds, setRunningConfigIds] = useState<Set<number>>(new Set());
+  const [runProgressByConfigId, setRunProgressByConfigId] = useState<RunProgressByConfigId>({});
   const [generatedEmailHtmlByConfigId, setGeneratedEmailHtmlByConfigId] = useState<Record<number, string>>({});
 
   const emptyConfig = useMemo<ConfigSet>(
@@ -114,6 +117,58 @@ function App() {
     }
     return byConfig;
   }, [runs]);
+
+  useEffect(() => {
+    const nowMs = Date.now();
+    setRunProgressByConfigId((prev) => {
+      let changed = false;
+      const next: RunProgressByConfigId = { ...prev };
+
+      for (const [configId, latestRun] of latestRunsByConfigId) {
+        if (!isRunInProgress(latestRun, nowMs)) {
+          if (!runningConfigIds.has(configId) && next[configId]) {
+            delete next[configId];
+            changed = true;
+          }
+          continue;
+        }
+
+        const previous = next[configId];
+        if (!previous || previous.runId !== latestRun.id) {
+          next[configId] = { runId: latestRun.id, messages: [latestRun.status] };
+          changed = true;
+          continue;
+        }
+
+        const lastMessage = previous.messages[previous.messages.length - 1];
+        if (lastMessage !== latestRun.status) {
+          next[configId] = {
+            runId: previous.runId,
+            messages: [...previous.messages, latestRun.status],
+          };
+          changed = true;
+        }
+      }
+
+      for (const configIdText of Object.keys(next)) {
+        const configId = Number(configIdText);
+        const latestRun = latestRunsByConfigId.get(configId);
+
+        if (!latestRun && !runningConfigIds.has(configId)) {
+          delete next[configId];
+          changed = true;
+          continue;
+        }
+
+        if (latestRun && !isRunInProgress(latestRun, nowMs) && !runningConfigIds.has(configId)) {
+          delete next[configId];
+          changed = true;
+        }
+      }
+
+      return changed ? next : prev;
+    });
+  }, [latestRunsByConfigId, runningConfigIds]);
 
   const withTabLoading = useCallback(
     <T,>(tab: TabId, fn: () => Promise<T>) => async () => {
@@ -191,6 +246,8 @@ function App() {
         llm_model: data.llm_model ?? null,
         default_sender: data.default_sender ?? "",
         admin_email: data.admin_email ?? "",
+        source_items_limit:
+          Number.isFinite(data.source_items_limit) && data.source_items_limit > 0 ? data.source_items_limit : 20,
       });
     })();
   }
@@ -313,6 +370,14 @@ function App() {
     }
 
     setNotice(null);
+    setRunProgressByConfigId((prev) => {
+      if (!prev[id]) {
+        return prev;
+      }
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
     setRunningConfigIds((prev) => {
       const next = new Set(prev);
       next.add(id);
@@ -452,6 +517,7 @@ function App() {
             configSets={configSets}
             runningConfigIds={activeRunningConfigIds}
             latestRunsByConfigId={latestRunsByConfigId}
+            runProgressByConfigId={runProgressByConfigId}
             generatedEmailHtmlByConfigId={generatedEmailHtmlByConfigId}
             configForm={configForm}
             scheduleOptions={scheduleOptions}
@@ -472,6 +538,7 @@ function App() {
         {activeTab === 'history' && (
           <RunHistory
             runs={runs}
+            sourceItemsLimit={settings.source_items_limit}
             onDeleteOne={deleteRun}
             onDeleteMultiple={deleteRuns}
             onDeleteAll={deleteAllRuns}

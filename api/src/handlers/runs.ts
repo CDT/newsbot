@@ -241,25 +241,47 @@ export async function runConfigSet(env: Env, config: ConfigSet): Promise<RunConf
     const sources = await getConfigSources(env.DB, config.id);
     const recipients = safeParseJsonArray<string>(config.recipients_json);
     const sourceFetchTimeoutMs = getSourceFetchTimeoutMs(env);
+    const sourceItemsLimit = settings.source_items_limit;
 
     const items: NewsItem[] = [];
+    let totalSourceItemsReported = 0;
+    let totalSourceItemsProcessed = 0;
     for (const [sourceIndex, source] of sources.entries()) {
       const sourceLabel = source.name?.trim() || source.url;
-      await updateStatus(`Fetching from source [${sourceLabel}] (${sourceIndex + 1}/${sources.length})`);
+      await updateStatus(
+        `Fetching from source [${sourceLabel}] (${sourceIndex + 1}/${sources.length}, first ${sourceItemsLimit} items only)`
+      );
 
-      let sourceItems: NewsItem[] = [];
+      let sourceFetchResult: Awaited<ReturnType<typeof fetchRssItems>>;
       if (source.type === 'rss') {
-        sourceItems = await fetchRssItems(source.url, sourceFetchTimeoutMs);
+        sourceFetchResult = await fetchRssItems(source.url, sourceItemsLimit, sourceFetchTimeoutMs);
       } else if (source.type === 'api') {
-        sourceItems = await fetchApiItems(source.url, source.items_path ?? undefined, sourceFetchTimeoutMs);
+        sourceFetchResult = await fetchApiItems(
+          source.url,
+          source.items_path ?? undefined,
+          sourceItemsLimit,
+          sourceFetchTimeoutMs
+        );
+      } else {
+        continue;
       }
-      items.push(...sourceItems);
-      await updateStatus(`${items.length} items fetched so far`);
+
+      items.push(...sourceFetchResult.items);
+      totalSourceItemsReported += sourceFetchResult.totalItemCount;
+      totalSourceItemsProcessed += sourceFetchResult.processedItemCount;
+
+      await updateStatus(
+        `${items.length} items fetched so far (processed ${totalSourceItemsProcessed}/${totalSourceItemsReported} source items total, limit ${sourceItemsLimit} per source)`
+      );
     }
 
-    await updateStatus('Deduplicating fetched items');
+    await updateStatus(
+      `Deduplicating fetched items (${items.length} fetched from ${totalSourceItemsProcessed}/${totalSourceItemsReported} source items, limit ${sourceItemsLimit} per source)`
+    );
     const deduped = dedupeItems(items);
-    await updateStatus(`${deduped.length} unique items fetched`);
+    await updateStatus(
+      `${deduped.length} unique items fetched (from ${totalSourceItemsProcessed}/${totalSourceItemsReported} source items, limit ${sourceItemsLimit} per source)`
+    );
     await updateStatus('Summarizing content');
     const summary = await summarize(deduped, config.prompt, settings.llm_provider, settings.llm_api_key, settings.llm_model);
     await updateStatus('Generating html');

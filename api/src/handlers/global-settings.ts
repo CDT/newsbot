@@ -1,5 +1,5 @@
 import type { Env, GlobalSettings } from '../types';
-import { ensureGlobalSettingsSchema, getGlobalSettings } from '../services/global-settings';
+import { ensureGlobalSettingsSchema, getGlobalSettings, parseSourceItemsLimit } from '../services/global-settings';
 import { jsonResponse } from '../utils/response';
 
 const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
@@ -9,6 +9,7 @@ const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
   llm_model: null,
   default_sender: null,
   admin_email: null,
+  source_items_limit: 20,
 };
 
 export async function handleGetGlobalSettings(env: Env): Promise<Response> {
@@ -24,13 +25,13 @@ export async function handleUpdateGlobalSettings(request: Request, env: Env): Pr
 
   await ensureGlobalSettingsSchema(env);
   await env.DB.prepare(
-    'INSERT OR IGNORE INTO global_settings (id, resend_api_key, llm_provider, llm_api_key, llm_model, default_sender, admin_email) VALUES (1, ?, ?, ?, ?, ?, ?)'
+    'INSERT OR IGNORE INTO global_settings (id, resend_api_key, llm_provider, llm_api_key, llm_model, default_sender, admin_email, source_items_limit) VALUES (1, ?, ?, ?, ?, ?, ?, ?)'
   )
-    .bind('', 'gemini', '', null, '', '')
+    .bind('', 'gemini', '', null, '', '', 20)
     .run();
 
   await env.DB.prepare(
-    'UPDATE global_settings SET resend_api_key = ?, llm_provider = ?, llm_api_key = ?, llm_model = ?, default_sender = ?, admin_email = ? WHERE id = 1'
+    'UPDATE global_settings SET resend_api_key = ?, llm_provider = ?, llm_api_key = ?, llm_model = ?, default_sender = ?, admin_email = ?, source_items_limit = ? WHERE id = 1'
   )
     .bind(
       body.resend_api_key ?? '',
@@ -38,7 +39,8 @@ export async function handleUpdateGlobalSettings(request: Request, env: Env): Pr
       body.llm_api_key ?? '',
       body.llm_model ?? null,
       body.default_sender ?? '',
-      body.admin_email ?? ''
+      body.admin_email ?? '',
+      parseSourceItemsLimit(body.source_items_limit)
     )
     .run();
 

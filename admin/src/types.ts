@@ -7,6 +7,7 @@ export type GlobalSettings = {
   llm_model: string | null;
   default_sender: string | null;
   admin_email: string | null;
+  source_items_limit: number;
 };
 
 export type ConfigSet = {
@@ -64,6 +65,9 @@ export type NewsItem = {
 export type SourceTestResult = {
   success: boolean;
   item_count?: number;
+  total_item_count?: number;
+  processed_item_count?: number;
+  source_items_limit?: number;
   sample_items?: NewsItem[];
   error?: string;
 };

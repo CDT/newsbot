@@ -16,6 +16,12 @@ const FETCH_HEADERS = { 'User-Agent': 'newsbot/1.0' };
 
 const DEFAULT_SOURCE_FETCH_TIMEOUT_MS = 30_000;
 
+export type SourceFetchResult = {
+  items: NewsItem[];
+  totalItemCount: number;
+  processedItemCount: number;
+};
+
 function isAbortError(error: unknown): boolean {
   return error instanceof Error && error.name === 'AbortError';
 }
@@ -39,7 +45,11 @@ async function fetchWithTimeout(url: string, timeoutMs: number): Promise<Respons
   }
 }
 
-export async function fetchRssItems(url: string, timeoutMs = DEFAULT_SOURCE_FETCH_TIMEOUT_MS): Promise<NewsItem[]> {
+export async function fetchRssItems(
+  url: string,
+  itemsLimit: number,
+  timeoutMs = DEFAULT_SOURCE_FETCH_TIMEOUT_MS
+): Promise<SourceFetchResult> {
   const response = await fetchWithTimeout(url, timeoutMs);
   if (!response.ok) {
     const body = await response.text().catch(() => '');
@@ -55,16 +65,30 @@ export async function fetchRssItems(url: string, timeoutMs = DEFAULT_SOURCE_FETC
   const rssItems: unknown[] | undefined =
     parsed?.rss?.channel?.item ?? parsed?.rdf?.item;
   if (rssItems && rssItems.length > 0) {
-    return parseRssItems(rssItems);
+    const processedItemCount = Math.min(rssItems.length, itemsLimit);
+    return {
+      items: parseRssItems(rssItems.slice(0, itemsLimit)),
+      totalItemCount: rssItems.length,
+      processedItemCount,
+    };
   }
 
   // Try Atom format (looks for feed > entry)
   const atomEntries: unknown[] | undefined = parsed?.feed?.entry;
   if (atomEntries && atomEntries.length > 0) {
-    return parseAtomEntries(atomEntries);
+    const processedItemCount = Math.min(atomEntries.length, itemsLimit);
+    return {
+      items: parseAtomEntries(atomEntries.slice(0, itemsLimit)),
+      totalItemCount: atomEntries.length,
+      processedItemCount,
+    };
   }
 
-  return [];
+  return {
+    items: [],
+    totalItemCount: 0,
+    processedItemCount: 0,
+  };
 }
 
 interface RssItemRaw {
@@ -145,9 +169,10 @@ function textOf(v: unknown): string | null {
 
 export async function fetchApiItems(
   url: string,
-  itemsPath?: string,
+  itemsPath: string | undefined,
+  itemsLimit: number,
   timeoutMs = DEFAULT_SOURCE_FETCH_TIMEOUT_MS
-): Promise<NewsItem[]> {
+): Promise<SourceFetchResult> {
   const response = await fetchWithTimeout(url, timeoutMs);
   if (!response.ok) {
     const body = await response.text().catch(() => '');
@@ -162,14 +187,20 @@ export async function fetchApiItems(
     console.error(`[fetchApiItems] Response is not an array for ${url}. Got:`, typeof items, JSON.stringify(items).slice(0, 300));
     throw new Error(`API response did not return an array for ${url}`);
   }
-  return items
-    .map((item) => ({
-      title: String(item.title ?? 'Untitled'),
-      url: String(item.url ?? item.link ?? ''),
-      publishedAt: item.published_at ? String(item.published_at) : undefined,
-      summary: item.summary ? String(item.summary) : undefined,
-    }))
-    .filter((item) => item.url);
+  const processedItemCount = Math.min(items.length, itemsLimit);
+  return {
+    items: items
+      .slice(0, itemsLimit)
+      .map((item) => ({
+        title: String(item.title ?? 'Untitled'),
+        url: String(item.url ?? item.link ?? ''),
+        publishedAt: item.published_at ? String(item.published_at) : undefined,
+        summary: item.summary ? String(item.summary) : undefined,
+      }))
+      .filter((item) => item.url),
+    totalItemCount: items.length,
+    processedItemCount,
+  };
 }
 
 export function dedupeItems(items: NewsItem[]): NewsItem[] {

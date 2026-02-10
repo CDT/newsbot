@@ -4,12 +4,13 @@ import { formatDate } from "../utils";
 
 type RunItemProps = {
   run: RunLog;
+  sourceItemsLimit: number;
   selected?: boolean;
   onSelect?: (id: number, selected: boolean) => void;
   onDelete?: (id: number) => void;
 };
 
-export function RunItem({ run, selected, onSelect, onDelete }: RunItemProps) {
+export function RunItem({ run, sourceItemsLimit, selected, onSelect, onDelete }: RunItemProps) {
   const normalizedStatus = run.status.toLowerCase();
   const isSuccess = normalizedStatus === "sent" || normalizedStatus === "success";
   const isError = normalizedStatus === "error" || normalizedStatus === "failed";
@@ -52,6 +53,7 @@ export function RunItem({ run, selected, onSelect, onDelete }: RunItemProps) {
         <div className="run-item-details">
           <span>{formatDate(run.started_at)}</span>
           <span>{run.item_count} items processed</span>
+          <span>Fetch limit: first {sourceItemsLimit}/source</span>
           {run.email_id && <span>Email: {run.email_id.slice(0, 12)}...</span>}
         </div>
         {run.error_message && (

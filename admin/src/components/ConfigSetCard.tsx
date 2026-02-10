@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Icons } from "../Icons";
 import type { ConfigSet, RunLog } from "../types";
 import { safeParseJsonArray } from "../utils";
@@ -7,6 +7,7 @@ type ConfigSetCardProps = {
   config: ConfigSet;
   running: boolean;
   latestRun?: RunLog;
+  progressMessages: string[];
   generatedEmailHtml?: string;
   onEdit: (config: ConfigSet) => void;
   onRun: (id: number) => Promise<void>;
@@ -23,39 +24,16 @@ export function ConfigSetCard({
   config,
   running,
   latestRun,
+  progressMessages,
   generatedEmailHtml,
   onEdit,
   onRun,
   onDelete,
 }: ConfigSetCardProps) {
   const [runError, setRunError] = useState<string | null>(null);
-  const [runMessages, setRunMessages] = useState<string[]>([]);
   const [showEmailPreview, setShowEmailPreview] = useState(false);
   const sourcesCount = config.source_ids.length;
   const recipientsCount = safeParseJsonArray(config.recipients_json).length;
-  const lastRunIdRef = useRef<number | null>(null);
-  const lastStatusRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (!latestRun) return;
-
-    if (lastRunIdRef.current !== latestRun.id) {
-      lastRunIdRef.current = latestRun.id;
-      lastStatusRef.current = null;
-      setRunMessages([]);
-    }
-
-    if (latestRun.status !== lastStatusRef.current) {
-      lastStatusRef.current = latestRun.status;
-      if (!isFinalStatus(latestRun.status)) {
-        setRunMessages((prev) =>
-          prev.length > 0 && prev[prev.length - 1] === latestRun.status
-            ? prev
-            : [...prev, latestRun.status]
-        );
-      }
-    }
-  }, [latestRun?.id, latestRun?.status]);
 
   useEffect(() => {
     if (!generatedEmailHtml) {
@@ -66,7 +44,6 @@ export function ConfigSetCard({
   async function handleRun() {
     if (running) return;
     setRunError(null);
-    setRunMessages([]);
     try {
       await onRun(config.id);
     } catch (err) {
@@ -74,10 +51,10 @@ export function ConfigSetCard({
     }
   }
 
-  const progressMessages = [...runMessages];
+  const displayedProgressMessages = [...progressMessages];
   if (running && latestRun && !isFinalStatus(latestRun.status)) {
-    if (progressMessages[progressMessages.length - 1] !== latestRun.status) {
-      progressMessages.push(latestRun.status);
+    if (displayedProgressMessages[displayedProgressMessages.length - 1] !== latestRun.status) {
+      displayedProgressMessages.push(latestRun.status);
     }
   }
 
@@ -124,9 +101,9 @@ export function ConfigSetCard({
             <div className="config-card-progress-title">
               <Icons.Loader /> Running details
             </div>
-            {progressMessages.length > 0 ? (
+            {displayedProgressMessages.length > 0 ? (
               <div className="config-card-progress-list">
-                {progressMessages.map((message, index) => (
+                {displayedProgressMessages.map((message, index) => (
                   <div key={`${message}-${index}`} className="config-card-progress-item">
                     {message}
                   </div>

@@ -1,6 +1,7 @@
 import type { Env, Source, SourceTestResult } from '../types';
 import { jsonResponse } from '../utils/response';
 import { fetchRssItems, fetchApiItems } from '../services/sources';
+import { getGlobalSettings, parseSourceItemsLimit } from '../services/global-settings';
 
 export async function handleListSources(env: Env): Promise<Response> {
   const rows = await env.DB.prepare(
@@ -114,7 +115,9 @@ export async function handleTestSource(
     sourceData = body;
   }
 
-  const result = await testSourceFetch(sourceData.type!, sourceData.url!, sourceData.items_path);
+  const settings = await getGlobalSettings(env);
+  const sourceItemsLimit = parseSourceItemsLimit(settings?.source_items_limit);
+  const result = await testSourceFetch(sourceData.type!, sourceData.url!, sourceData.items_path, sourceItemsLimit);
 
   // Update last test status if testing an existing source
   if (id !== undefined) {
@@ -123,7 +126,9 @@ export async function handleTestSource(
     )
       .bind(
         result.success ? 'success' : 'error',
-        result.success ? `Fetched ${result.item_count} items` : result.error ?? 'Unknown error',
+        result.success
+          ? `Fetched ${result.item_count} items (processed ${result.processed_item_count ?? result.item_count}/${result.total_item_count ?? result.processed_item_count ?? result.item_count} source items, limit ${sourceItemsLimit})`
+          : result.error ?? 'Unknown error',
         id
       )
       .run();
@@ -135,27 +140,32 @@ export async function handleTestSource(
 async function testSourceFetch(
   type: string,
   url: string,
-  itemsPath?: string | null
+  itemsPath: string | null | undefined,
+  sourceItemsLimit: number
 ): Promise<SourceTestResult> {
   try {
-    let items;
+    let fetchResult: Awaited<ReturnType<typeof fetchRssItems>>;
     if (type === 'rss') {
-      items = await fetchRssItems(url);
+      fetchResult = await fetchRssItems(url, sourceItemsLimit);
     } else if (type === 'api') {
-      items = await fetchApiItems(url, itemsPath ?? undefined);
+      fetchResult = await fetchApiItems(url, itemsPath ?? undefined, sourceItemsLimit);
     } else {
-      return { success: false, error: `Unknown source type: ${type}` };
+      return { success: false, error: `Unknown source type: ${type}`, source_items_limit: sourceItemsLimit };
     }
 
     return {
       success: true,
-      item_count: items.length,
-      sample_items: items.slice(0, 3),
+      item_count: fetchResult.items.length,
+      total_item_count: fetchResult.totalItemCount,
+      processed_item_count: fetchResult.processedItemCount,
+      source_items_limit: sourceItemsLimit,
+      sample_items: fetchResult.items.slice(0, 3),
     };
   } catch (err) {
     console.error('[testSourceFetch] Error:', err);
     return {
       success: false,
+      source_items_limit: sourceItemsLimit,
       error: err instanceof Error ? err.message : 'Unknown error occurred',
     };
   }

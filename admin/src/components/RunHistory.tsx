@@ -5,6 +5,7 @@ import { RunItem } from "./RunItem";
 
 type RunHistoryProps = {
   runs: RunLog[];
+  sourceItemsLimit: number;
   onDeleteOne: (id: number) => void;
   onDeleteMultiple: (ids: number[]) => void;
   onDeleteAll: () => void;
@@ -12,6 +13,7 @@ type RunHistoryProps = {
 
 export function RunHistory({
   runs,
+  sourceItemsLimit,
   onDeleteOne,
   onDeleteMultiple,
   onDeleteAll,
@@ -113,6 +115,7 @@ export function RunHistory({
             <RunItem
               key={run.id}
               run={run}
+              sourceItemsLimit={sourceItemsLimit}
               selected={selectedIds.has(run.id)}
               onSelect={handleSelect}
               onDelete={handleDeleteOne}

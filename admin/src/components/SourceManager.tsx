@@ -99,7 +99,18 @@ export function SourceManager({
       }
       setTestResult(result);
       if (result.success) {
-        setNotice(`Test successful: ${result.item_count} items fetched`);
+        if (result.total_item_count !== undefined) {
+          const processedCount = result.processed_item_count ?? result.item_count ?? 0;
+          const limitText = result.source_items_limit ?? processedCount;
+          setNotice(
+            `Test successful: ${result.item_count} items fetched (processed ${processedCount}/${result.total_item_count} source items, limit ${limitText})`
+          );
+        } else {
+          const limitHint = result.source_items_limit
+            ? ` (from first ${result.source_items_limit} source items)`
+            : "";
+          setNotice(`Test successful: ${result.item_count} items fetched${limitHint}`);
+        }
       } else {
         setError(`Test failed: ${result.error}`);
       }
@@ -361,11 +372,26 @@ function SourceCard({ source, onEdit, onDelete, onTest, testing }: SourceCardPro
 }
 
 function TestResultDisplay({ result }: { result: SourceTestResult }) {
+  const successMessage = (() => {
+    if (!result.success) {
+      return `Error: ${result.error}`;
+    }
+
+    if (result.total_item_count !== undefined) {
+      const processedCount = result.processed_item_count ?? result.item_count ?? 0;
+      const limitText = result.source_items_limit ?? processedCount;
+      return `Success: ${result.item_count} items fetched (processed ${processedCount}/${result.total_item_count} source items, limit ${limitText})`;
+    }
+
+    const limitHint = result.source_items_limit ? ` (from first ${result.source_items_limit} source items)` : "";
+    return `Success: ${result.item_count} items fetched${limitHint}`;
+  })();
+
   return (
     <div className={`test-result ${result.success ? "success" : "error"}`}>
       <div className="test-result-header">
         {result.success ? <Icons.Check /> : <Icons.AlertCircle />}
-        {result.success ? `Success: ${result.item_count} items fetched` : `Error: ${result.error}`}
+        {successMessage}
       </div>
 
       {result.success && result.sample_items && result.sample_items.length > 0 && (

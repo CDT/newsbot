@@ -7,6 +7,7 @@ type ConfigSetListProps = {
   configSets: ConfigSet[];
   runningConfigIds: ReadonlySet<number>;
   latestRunsByConfigId: ReadonlyMap<number, RunLog>;
+  runProgressByConfigId: Readonly<Record<number, { runId: number; messages: string[] }>>;
   generatedEmailHtmlByConfigId: Readonly<Record<number, string>>;
   configForm: ConfigSet;
   scheduleOptions: ScheduleOption[];
@@ -27,6 +28,7 @@ export function ConfigSetList({
   configSets,
   runningConfigIds,
   latestRunsByConfigId,
+  runProgressByConfigId,
   generatedEmailHtmlByConfigId,
   configForm,
   scheduleOptions,
@@ -82,6 +84,7 @@ export function ConfigSetList({
               config={config}
               running={runningConfigIds.has(config.id)}
               latestRun={latestRunsByConfigId.get(config.id)}
+              progressMessages={runProgressByConfigId[config.id]?.messages ?? []}
               generatedEmailHtml={generatedEmailHtmlByConfigId[config.id]}
               onEdit={onStartEdit}
               onRun={onRunConfig}

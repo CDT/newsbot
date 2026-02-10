@@ -131,6 +131,25 @@ export function GlobalSettings({ settings, onSettingsChange, onSave, loading }: 
           </div>
         </div>
         <div className="form-row">
+          <div className="form-group">
+            <label>
+              Source Items Limit
+              <span className="label-hint">(per source, only the first N items are fetched)</span>
+            </label>
+            <input
+              type="number"
+              min={1}
+              step={1}
+              value={settings.source_items_limit}
+              onChange={(event) => {
+                const parsed = Number.parseInt(event.target.value, 10);
+                onSettingsChange({
+                  ...settings,
+                  source_items_limit: Number.isFinite(parsed) && parsed > 0 ? parsed : 20,
+                });
+              }}
+            />
+          </div>
           <div className="form-group" style={{ display: "flex", alignItems: "flex-end" }}>
             <button type="submit" className="btn btn-primary" disabled={loading}>
               {loading ? <><Icons.Loader /> Saving...</> : <><Icons.Settings /> Save Settings</>}
