@@ -5,12 +5,13 @@ import { jsonResponse } from '../utils/response';
 type ConfigSetResponse = ConfigSet & { source_ids: number[] };
 
 function normalizeCron(cron: string): string {
-  return cron.trim().replace(/\s+/g, ' ');
+  const parts = cron.split(',').map((part) => part.trim().replace(/\s+/g, ' '));
+  return [...new Set(parts)].join(',');
 }
 
 function getInvalidScheduleMessage(): string {
   const allowed = ALLOWED_SCHEDULES.map((option) => option.cron).join(', ');
-  return `Invalid schedule_cron. Allowed values: ${allowed}`;
+  return `Invalid schedule_cron. Allowed values (comma-separated): ${allowed}`;
 }
 
 async function getSourceIds(db: D1Database, configSetId: number): Promise<number[]> {

@@ -1321,6 +1321,60 @@ html[data-theme="dark"] select {
   margin: 0;
 }
 
+/* ===== Schedule Picker ===== */
+.schedule-picker {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-2);
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  padding: var(--space-3);
+}
+
+.schedule-picker-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-family: var(--font-mono);
+  transition: background var(--transition-fast);
+  margin-bottom: 0;
+}
+
+.schedule-picker-item:hover {
+  background: var(--color-gray-50);
+}
+
+.schedule-picker-item.selected {
+  background: var(--color-primary-50);
+}
+
+.schedule-picker-item input[type="checkbox"] {
+  width: auto;
+  accent-color: var(--color-primary-500);
+}
+
+/* ===== Schedule Badges (Card) ===== */
+.schedule-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.schedule-badge {
+  background: var(--color-surface);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  color: var(--color-gray-700);
+  border: 1px solid var(--color-gray-200);
+  font-family: var(--font-mono);
+}
+
 .form-footer {
   display: flex;
   align-items: center;

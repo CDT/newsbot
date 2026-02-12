@@ -25,7 +25,7 @@ export function ConfigSetForm({
 }: ConfigSetFormProps) {
   const [polishing, setPolishing] = useState(false);
   const [prePolishPrompt, setPrePolishPrompt] = useState<string | null>(null);
-  const hasSelectedSchedule = scheduleOptions.some((option) => option.cron === configForm.schedule_cron);
+  const selectedCrons = new Set(configForm.schedule_cron.split(",").map((p) => p.trim()).filter(Boolean));
 
   async function handlePolish() {
     setPolishing(true);
@@ -55,6 +55,17 @@ export function ConfigSetForm({
     onConfigFormChange({ ...configForm, source_ids: next });
   }
 
+  function toggleSchedule(cron: string) {
+    const next = new Set(selectedCrons);
+    if (next.has(cron)) {
+      if (next.size <= 1) return;
+      next.delete(cron);
+    } else {
+      next.add(cron);
+    }
+    onConfigFormChange({ ...configForm, schedule_cron: [...next].join(",") });
+  }
+
   return (
     <form onSubmit={onSave} className="config-set-form">
       <div className="form-row">
@@ -71,27 +82,26 @@ export function ConfigSetForm({
         <div className="form-group">
           <label>
             Schedule
-            <span className="label-hint">(Cloudflare trigger)</span>
+            <span className="label-hint">({selectedCrons.size} selected)</span>
           </label>
-          <select
-            value={hasSelectedSchedule ? configForm.schedule_cron : ""}
-            onChange={(event) => onConfigFormChange({ ...configForm, schedule_cron: event.target.value })}
-            className="text-mono"
-            required
-          >
-            {!hasSelectedSchedule && (
-              <option value="" disabled>
-                {configForm.schedule_cron
-                  ? `Unsupported schedule: ${configForm.schedule_cron}`
-                  : "Select a schedule"}
-              </option>
-            )}
-            {scheduleOptions.map((option) => (
-              <option key={option.cron} value={option.cron}>
-                {`${option.label} (${option.cron})`}
-              </option>
-            ))}
-          </select>
+          <div className="schedule-picker">
+            {scheduleOptions.map((option) => {
+              const hour = option.label.match(/(\d{2}:\d{2})/)?.[1] ?? option.cron;
+              return (
+                <label
+                  key={option.cron}
+                  className={`schedule-picker-item ${selectedCrons.has(option.cron) ? "selected" : ""}`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedCrons.has(option.cron)}
+                    onChange={() => toggleSchedule(option.cron)}
+                  />
+                  <span>{hour}</span>
+                </label>
+              );
+            })}
+          </div>
         </div>
       </div>
 

@@ -28,8 +28,18 @@ const RUN_TIMEOUT_MS = 15 * 60 * 1000;
 type RunProgressByConfigId = Record<number, { runId: number; messages: string[] }>;
 const FALLBACK_SCHEDULE_OPTIONS: ScheduleOption[] = [
   { cron: "0 0 * * *", label: "Daily at 08:00 UTC+8 (Wuhan)" },
+  { cron: "0 1 * * *", label: "Daily at 09:00 UTC+8 (Wuhan)" },
+  { cron: "0 2 * * *", label: "Daily at 10:00 UTC+8 (Wuhan)" },
+  { cron: "0 3 * * *", label: "Daily at 11:00 UTC+8 (Wuhan)" },
   { cron: "0 4 * * *", label: "Daily at 12:00 UTC+8 (Wuhan)" },
+  { cron: "0 5 * * *", label: "Daily at 13:00 UTC+8 (Wuhan)" },
+  { cron: "0 6 * * *", label: "Daily at 14:00 UTC+8 (Wuhan)" },
+  { cron: "0 7 * * *", label: "Daily at 15:00 UTC+8 (Wuhan)" },
+  { cron: "0 8 * * *", label: "Daily at 16:00 UTC+8 (Wuhan)" },
+  { cron: "0 9 * * *", label: "Daily at 17:00 UTC+8 (Wuhan)" },
   { cron: "0 10 * * *", label: "Daily at 18:00 UTC+8 (Wuhan)" },
+  { cron: "0 11 * * *", label: "Daily at 19:00 UTC+8 (Wuhan)" },
+  { cron: "0 12 * * *", label: "Daily at 20:00 UTC+8 (Wuhan)" },
 ];
 
 function isRunInProgress(run: RunLog, nowMs = Date.now()): boolean {
@@ -225,13 +235,15 @@ function App() {
 
   useEffect(() => {
     if (scheduleOptions.length === 0) return;
+    const allowedCrons = new Set(scheduleOptions.map((o) => o.cron));
     const defaultSchedule = scheduleOptions[0].cron;
     setConfigForm((prev) => {
       if (prev.id !== 0) {
         return prev;
       }
-      const hasSupportedSchedule = scheduleOptions.some((option) => option.cron === prev.schedule_cron);
-      if (hasSupportedSchedule) {
+      const parts = prev.schedule_cron.split(",").map((p) => p.trim()).filter(Boolean);
+      const allSupported = parts.length > 0 && parts.every((p) => allowedCrons.has(p));
+      if (allSupported) {
         return prev;
       }
       return { ...prev, schedule_cron: defaultSchedule };

@@ -260,7 +260,7 @@ export async function getEnabledConfigSets(env: Env, cron: string): Promise<Conf
   await markTimedOutRuns(env);
 
   const rows = await env.DB.prepare(
-    'SELECT id, name, enabled, schedule_cron, prompt, recipients_json FROM config_set WHERE enabled = 1 AND schedule_cron = ?'
+    "SELECT id, name, enabled, schedule_cron, prompt, recipients_json FROM config_set WHERE enabled = 1 AND (',' || schedule_cron || ',') LIKE ('%,' || ? || ',%')"
   )
     .bind(cron)
     .all<ConfigSet>();
