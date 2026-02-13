@@ -6,7 +6,8 @@ CREATE TABLE IF NOT EXISTS global_settings (
   llm_model TEXT,
   default_sender TEXT,
   admin_email TEXT,
-  source_items_limit INTEGER NOT NULL DEFAULT 20
+  source_items_limit INTEGER NOT NULL DEFAULT 20,
+  source_lookback_days INTEGER
 );
 
 INSERT OR IGNORE INTO global_settings (
@@ -17,9 +18,10 @@ INSERT OR IGNORE INTO global_settings (
   llm_model,
   default_sender,
   admin_email,
-  source_items_limit
+  source_items_limit,
+  source_lookback_days
 )
-VALUES (1, '', 'gemini', '', NULL, '', '', 20);
+VALUES (1, '', 'gemini', '', NULL, '', '', 20, NULL);
 
 CREATE TABLE IF NOT EXISTS config_set (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

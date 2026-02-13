@@ -34,6 +34,7 @@ export type GlobalSettings = {
   default_sender: string | null;
   admin_email: string | null;
   source_items_limit: number;
+  source_lookback_days: number | null;
 };
 
 export type Source = {

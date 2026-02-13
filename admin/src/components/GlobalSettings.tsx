@@ -150,6 +150,28 @@ export function GlobalSettings({ settings, onSettingsChange, onSave, loading }: 
               }}
             />
           </div>
+          <div className="form-group">
+            <label>
+              Lookback Days
+              <span className="label-hint">(drop items older than N days, blank = no limit)</span>
+            </label>
+            <input
+              type="number"
+              min={1}
+              step={1}
+              placeholder="No limit"
+              value={settings.source_lookback_days ?? ""}
+              onChange={(event) => {
+                const parsed = Number.parseInt(event.target.value, 10);
+                onSettingsChange({
+                  ...settings,
+                  source_lookback_days: Number.isFinite(parsed) && parsed > 0 ? parsed : null,
+                });
+              }}
+            />
+          </div>
+        </div>
+        <div className="form-row">
           <div className="form-group" style={{ display: "flex", alignItems: "flex-end" }}>
             <button type="submit" className="btn btn-primary" disabled={loading}>
               {loading ? <><Icons.Loader /> Saving...</> : <><Icons.Settings /> Save Settings</>}

@@ -2,7 +2,7 @@ import type { Env, ConfigSet, GlobalSettings, NewsItem, Source } from '../types'
 import { getGlobalSettings } from '../services/global-settings';
 import { safeParseJsonArray } from '../utils/parsing';
 import { jsonResponse, escapeHtml } from '../utils/response';
-import { fetchRssItems, fetchApiItems, dedupeItems } from '../services/sources';
+import { fetchRssItems, fetchApiItems, dedupeItems, filterByLookback } from '../services/sources';
 import { summarize } from '../services/llm';
 import { buildEmailHtml, buildEmailText, sendResendEmail } from '../services/email';
 
@@ -332,14 +332,17 @@ export async function runConfigSet(env: Env, config: ConfigSet): Promise<RunConf
       `Deduplicating fetched items (${items.length} fetched from ${totalSourceItemsProcessed}/${totalSourceItemsReported} source items, limit ${sourceItemsLimit} per source)`
     );
     const deduped = dedupeItems(items);
+    const lookbackDays = settings.source_lookback_days;
+    const filtered = filterByLookback(deduped, lookbackDays);
+    const lookbackLabel = lookbackDays ? `, lookback ${lookbackDays}d` : '';
     await updateStatus(
-      `${deduped.length} unique items fetched (from ${totalSourceItemsProcessed}/${totalSourceItemsReported} source items, limit ${sourceItemsLimit} per source)`
+      `${filtered.length} items after dedup/filter (from ${totalSourceItemsProcessed}/${totalSourceItemsReported} source items, limit ${sourceItemsLimit} per source${lookbackLabel})`
     );
     await updateStatus('Summarizing content');
-    const summary = await summarize(deduped, config.prompt, settings.llm_provider, settings.llm_api_key, settings.llm_model);
+    const summary = await summarize(filtered, config.prompt, settings.llm_provider, settings.llm_api_key, settings.llm_model);
     await updateStatus('Generating html');
-    const html = buildEmailHtml(config.name, summary, deduped);
-    const text = buildEmailText(config.name, summary, deduped);
+    const html = buildEmailHtml(config.name, summary, filtered);
+    const text = buildEmailText(config.name, summary, filtered);
     await updateStatus(`Sending email to ${recipients.length} recipient(s)`);
 
     const emailId = await sendResendEmail(
@@ -354,7 +357,7 @@ export async function runConfigSet(env: Env, config: ConfigSet): Promise<RunConf
     await env.DB.prepare(
       "UPDATE run_log SET status = ?, status_history_json = json_insert(CASE WHEN json_valid(status_history_json) THEN status_history_json ELSE '[]' END, '$[#]', ?), item_count = ?, email_id = ? WHERE id = ?"
     )
-      .bind('sent', 'sent', deduped.length, emailId, runId)
+      .bind('sent', 'sent', filtered.length, emailId, runId)
       .run();
     return { runId, html };
   } catch (error) {

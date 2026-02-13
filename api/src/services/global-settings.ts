@@ -17,6 +17,12 @@ export function parseSourceItemsLimit(value: unknown): number {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 20;
 }
 
+export function parseSourceLookbackDays(value: unknown): number | null {
+  if (value == null || value === '') return null;
+  const parsed = Number.parseInt(String(value), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
 export async function ensureGlobalSettingsSchema(env: Env): Promise<void> {
   if (ensureSchemaPromise) {
     await ensureSchemaPromise;
@@ -46,6 +52,16 @@ export async function ensureGlobalSettingsSchema(env: Env): Promise<void> {
         }
       }
     }
+
+    if (!existingColumns.has('source_lookback_days')) {
+      try {
+        await env.DB.prepare('ALTER TABLE global_settings ADD COLUMN source_lookback_days INTEGER').run();
+      } catch (error) {
+        if (!isDuplicateColumnError(error)) {
+          throw error;
+        }
+      }
+    }
   })();
 
   try {
@@ -60,9 +76,9 @@ export async function getGlobalSettings(env: Env): Promise<GlobalSettings | null
 
   const row = await env.DB
     .prepare(
-      'SELECT resend_api_key, llm_provider, llm_api_key, llm_model, default_sender, admin_email, source_items_limit FROM global_settings WHERE id = 1'
+      'SELECT resend_api_key, llm_provider, llm_api_key, llm_model, default_sender, admin_email, source_items_limit, source_lookback_days FROM global_settings WHERE id = 1'
     )
-    .first<Omit<GlobalSettings, 'source_items_limit'> & { source_items_limit: unknown }>();
+    .first<Omit<GlobalSettings, 'source_items_limit' | 'source_lookback_days'> & { source_items_limit: unknown; source_lookback_days: unknown }>();
 
   if (!row) {
     return null;
@@ -71,5 +87,6 @@ export async function getGlobalSettings(env: Env): Promise<GlobalSettings | null
   return {
     ...row,
     source_items_limit: parseSourceItemsLimit(row.source_items_limit),
+    source_lookback_days: parseSourceLookbackDays(row.source_lookback_days),
   };
 }

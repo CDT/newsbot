@@ -203,6 +203,16 @@ export async function fetchApiItems(
   };
 }
 
+export function filterByLookback(items: NewsItem[], lookbackDays: number | null): NewsItem[] {
+  if (!lookbackDays) return items;
+  const cutoff = new Date(Date.now() - lookbackDays * 24 * 60 * 60 * 1000);
+  return items.filter((item) => {
+    if (!item.publishedAt) return true; // keep items with no date
+    const date = new Date(item.publishedAt);
+    return !Number.isNaN(date.getTime()) && date >= cutoff;
+  });
+}
+
 export function dedupeItems(items: NewsItem[]): NewsItem[] {
   const seen = new Set<string>();
   const result: NewsItem[] = [];

@@ -114,6 +114,7 @@ function App() {
     default_sender: "",
     admin_email: "",
     source_items_limit: 20,
+    source_lookback_days: null,
   });
   const [configSets, setConfigSets] = useState<ConfigSet[]>([]);
   const [scheduleOptions, setScheduleOptions] = useState<ScheduleOption[]>(FALLBACK_SCHEDULE_OPTIONS);
@@ -296,6 +297,7 @@ function App() {
         admin_email: data.admin_email ?? "",
         source_items_limit:
           Number.isFinite(data.source_items_limit) && data.source_items_limit > 0 ? data.source_items_limit : 20,
+        source_lookback_days: data.source_lookback_days ?? null,
       });
     })();
   }
