@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Icons } from "../Icons";
 import type { ConfigSet, ScheduleOption, Source } from "../types";
 
@@ -25,7 +25,20 @@ export function ConfigSetForm({
 }: ConfigSetFormProps) {
   const [polishing, setPolishing] = useState(false);
   const [prePolishPrompt, setPrePolishPrompt] = useState<string | null>(null);
-  const selectedCrons = new Set(configForm.schedule_cron.split(",").map((p) => p.trim()).filter(Boolean));
+  const allowedCrons = useMemo(
+    () => new Set(scheduleOptions.map((option) => option.cron)),
+    [scheduleOptions]
+  );
+  const selectedCrons = useMemo(
+    () =>
+      new Set(
+        configForm.schedule_cron
+          .split(",")
+          .map((part) => part.trim())
+          .filter((part) => part.length > 0 && allowedCrons.has(part))
+      ),
+    [configForm.schedule_cron, allowedCrons]
+  );
 
   async function handlePolish() {
     setPolishing(true);

@@ -30,17 +30,31 @@ const FALLBACK_SCHEDULE_OPTIONS: ScheduleOption[] = [
   { cron: "0 0 * * *", label: "Daily at 08:00 UTC+8 (Wuhan)" },
   { cron: "0 1 * * *", label: "Daily at 09:00 UTC+8 (Wuhan)" },
   { cron: "0 2 * * *", label: "Daily at 10:00 UTC+8 (Wuhan)" },
-  { cron: "0 3 * * *", label: "Daily at 11:00 UTC+8 (Wuhan)" },
-  { cron: "0 4 * * *", label: "Daily at 12:00 UTC+8 (Wuhan)" },
-  { cron: "0 5 * * *", label: "Daily at 13:00 UTC+8 (Wuhan)" },
-  { cron: "0 6 * * *", label: "Daily at 14:00 UTC+8 (Wuhan)" },
   { cron: "0 7 * * *", label: "Daily at 15:00 UTC+8 (Wuhan)" },
   { cron: "0 8 * * *", label: "Daily at 16:00 UTC+8 (Wuhan)" },
-  { cron: "0 9 * * *", label: "Daily at 17:00 UTC+8 (Wuhan)" },
-  { cron: "0 10 * * *", label: "Daily at 18:00 UTC+8 (Wuhan)" },
-  { cron: "0 11 * * *", label: "Daily at 19:00 UTC+8 (Wuhan)" },
-  { cron: "0 12 * * *", label: "Daily at 20:00 UTC+8 (Wuhan)" },
 ];
+
+function normalizeScheduleCronForOptions(scheduleCron: string, scheduleOptions: ScheduleOption[]): string {
+  if (scheduleOptions.length === 0) {
+    return scheduleCron;
+  }
+
+  const allowedCrons = new Set(scheduleOptions.map((option) => option.cron));
+  const selected = Array.from(
+    new Set(
+      scheduleCron
+        .split(",")
+        .map((part) => part.trim())
+        .filter((part) => part.length > 0 && allowedCrons.has(part))
+    )
+  );
+
+  if (selected.length > 0) {
+    return selected.join(",");
+  }
+
+  return scheduleOptions[0].cron;
+}
 
 function isRunInProgress(run: RunLog, nowMs = Date.now()): boolean {
   const normalizedStatus = run.status.trim().toLowerCase();
@@ -235,18 +249,12 @@ function App() {
 
   useEffect(() => {
     if (scheduleOptions.length === 0) return;
-    const allowedCrons = new Set(scheduleOptions.map((o) => o.cron));
-    const defaultSchedule = scheduleOptions[0].cron;
     setConfigForm((prev) => {
-      if (prev.id !== 0) {
+      const normalizedSchedule = normalizeScheduleCronForOptions(prev.schedule_cron, scheduleOptions);
+      if (normalizedSchedule === prev.schedule_cron) {
         return prev;
       }
-      const parts = prev.schedule_cron.split(",").map((p) => p.trim()).filter(Boolean);
-      const allSupported = parts.length > 0 && parts.every((p) => allowedCrons.has(p));
-      if (allSupported) {
-        return prev;
-      }
-      return { ...prev, schedule_cron: defaultSchedule };
+      return { ...prev, schedule_cron: normalizedSchedule };
     });
   }, [scheduleOptions]);
 
@@ -368,16 +376,24 @@ function App() {
     setNotice(null);
     setLoading(true);
     try {
-      if (configForm.id) {
-        await apiFetch(`/api/config-sets/${configForm.id}`, {
+      const payload = {
+        ...configForm,
+        schedule_cron: normalizeScheduleCronForOptions(configForm.schedule_cron, scheduleOptions),
+      };
+      if (payload.schedule_cron !== configForm.schedule_cron) {
+        setConfigForm(payload);
+      }
+
+      if (payload.id) {
+        await apiFetch(`/api/config-sets/${payload.id}`, {
           method: "PUT",
-          body: JSON.stringify(configForm),
+          body: JSON.stringify(payload),
         });
         setNotice("Config set updated successfully");
       } else {
         await apiFetch("/api/config-sets", {
           method: "POST",
-          body: JSON.stringify(configForm),
+          body: JSON.stringify(payload),
         });
         setNotice("Config set created successfully");
       }
@@ -502,7 +518,8 @@ function App() {
   }
 
   function startEdit(config: ConfigSet) {
-    setConfigForm(config);
+    const normalizedSchedule = normalizeScheduleCronForOptions(config.schedule_cron, scheduleOptions);
+    setConfigForm({ ...config, schedule_cron: normalizedSchedule });
     setEditMode(true);
   }
 
