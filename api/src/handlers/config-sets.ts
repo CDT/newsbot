@@ -1,5 +1,5 @@
 import type { Env, ConfigSet } from '../types';
-import { ALLOWED_SCHEDULES, isAllowedScheduleCron } from '../constants/schedules';
+import { ALLOWED_SCHEDULES, isAllowedScheduleCron } from '../config';
 import { jsonResponse } from '../utils/response';
 
 type ConfigSetResponse = ConfigSet & { source_ids: number[] };

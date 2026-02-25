@@ -2,9 +2,9 @@ import type { Env } from '../types';
 import { jsonResponse } from '../utils/response';
 import { signJwt, verifyJwt } from '../utils/jwt';
 import { getCookieValue } from '../utils/parsing';
+import { getSessionTtlSeconds } from '../config';
 
 const SESSION_COOKIE = 'session';
-const TOKEN_TTL_SECONDS = 60 * 60 * 24 * 7;
 
 export async function handleLogin(request: Request, env: Env): Promise<Response> {
   const body = (await request.json().catch(() => null)) as {
@@ -20,11 +20,12 @@ export async function handleLogin(request: Request, env: Env): Promise<Response>
     return jsonResponse({ error: 'Invalid credentials' }, 401);
   }
 
-  const token = await signJwt({ sub: body.username }, env.JWT_SECRET, TOKEN_TTL_SECONDS);
+  const ttl = getSessionTtlSeconds(env);
+  const token = await signJwt({ sub: body.username }, env.JWT_SECRET, ttl);
   const headers = new Headers({ 'content-type': 'application/json;charset=UTF-8' });
   headers.append(
     'set-cookie',
-    `${SESSION_COOKIE}=${token}; HttpOnly; Secure; Path=/; SameSite=Strict; Max-Age=${TOKEN_TTL_SECONDS}`
+    `${SESSION_COOKIE}=${token}; HttpOnly; Secure; Path=/; SameSite=Strict; Max-Age=${ttl}`
   );
 
   return new Response(JSON.stringify({ ok: true, token }), { status: 200, headers });

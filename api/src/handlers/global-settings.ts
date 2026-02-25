@@ -1,17 +1,7 @@
 import type { Env, GlobalSettings } from '../types';
 import { ensureGlobalSettingsSchema, getGlobalSettings, parseSourceItemsLimit, parseSourceLookbackDays } from '../services/global-settings';
 import { jsonResponse } from '../utils/response';
-
-const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
-  resend_api_key: null,
-  llm_provider: 'gemini',
-  llm_api_key: null,
-  llm_model: null,
-  default_sender: null,
-  admin_email: null,
-  source_items_limit: 20,
-  source_lookback_days: null,
-};
+import { DEFAULT_GLOBAL_SETTINGS } from '../config';
 
 export async function handleGetGlobalSettings(env: Env): Promise<Response> {
   const row = await getGlobalSettings(env);

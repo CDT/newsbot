@@ -6,6 +6,7 @@ export interface Env {
   CORS_ORIGIN?: string;
   RUN_TIMEOUT_MINUTES?: string;
   SOURCE_FETCH_TIMEOUT_SECONDS?: string;
+  SESSION_TTL_DAYS?: string;
 }
 
 export type NewsItem = {

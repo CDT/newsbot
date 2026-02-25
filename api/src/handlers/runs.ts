@@ -5,9 +5,8 @@ import { jsonResponse, escapeHtml } from '../utils/response';
 import { fetchRssItems, fetchApiItems, dedupeItems, filterByLookback } from '../services/sources';
 import { summarize } from '../services/llm';
 import { buildEmailHtml, buildEmailText, sendResendEmail } from '../services/email';
+import { getRunTimeoutMinutes, getSourceFetchTimeoutMs } from '../config';
 
-const DEFAULT_RUN_TIMEOUT_MINUTES = 15;
-const DEFAULT_SOURCE_FETCH_TIMEOUT_SECONDS = 30;
 const RUN_STATUS_HISTORY_DEFAULT = '[]';
 const RUN_FINAL_STATUSES = ['sent', 'success', 'error', 'failed', 'cancelled'] as const;
 
@@ -26,17 +25,6 @@ type RunFailureNotification = {
   errorMessage: string;
   errorStack: string | null;
 };
-
-function getRunTimeoutMinutes(env: Env): number {
-  const parsed = Number.parseInt(env.RUN_TIMEOUT_MINUTES ?? '', 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_RUN_TIMEOUT_MINUTES;
-}
-
-function getSourceFetchTimeoutMs(env: Env): number {
-  const parsed = Number.parseInt(env.SOURCE_FETCH_TIMEOUT_SECONDS ?? '', 10);
-  const timeoutSeconds = Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_SOURCE_FETCH_TIMEOUT_SECONDS;
-  return timeoutSeconds * 1000;
-}
 
 async function ensureRunLogSchema(env: Env): Promise<void> {
   if (!runLogSchemaReadyPromise) {

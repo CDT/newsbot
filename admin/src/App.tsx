@@ -141,7 +141,12 @@ function App() {
   const [configForm, setConfigForm] = useState<ConfigSet>(emptyConfig);
   const [editMode, setEditMode] = useState(false);
 
-  const { apiFetch } = useApi(token);
+  const handleUnauthorized = useCallback(() => {
+    setToken(null);
+    localStorage.removeItem(SESSION_KEY);
+  }, []);
+
+  const { apiFetch } = useApi(token, handleUnauthorized);
   const { theme, toggleTheme } = useTheme();
   const runningConfigIdsFromRuns = useMemo(() => {
     const ids = new Set<number>();
@@ -228,6 +233,8 @@ function App() {
       setTabLoading((prev) => ({ ...prev, [tab]: true }));
       try {
         return await fn();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : `Failed to load ${tab}`);
       } finally {
         setTabLoading((prev) => ({ ...prev, [tab]: false }));
       }
@@ -245,7 +252,9 @@ function App() {
 
   useEffect(() => {
     if (!token) return;
-    void Promise.all([loadSettings(), loadConfigSets(), loadRuns(), loadSources(), loadScheduleOptions()]);
+    void Promise.all([loadSettings(), loadConfigSets(), loadRuns(), loadSources(), loadScheduleOptions()]).catch(
+      (err) => setError(err instanceof Error ? err.message : "Failed to load data")
+    );
   }, [token]);
 
   useEffect(() => {
@@ -450,6 +459,8 @@ function App() {
       }
       setNotice("Run completed successfully");
       await loadRuns();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Run failed");
     } finally {
       setRunningConfigIds((prev) => {
         if (!prev.has(id)) {

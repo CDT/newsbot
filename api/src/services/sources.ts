@@ -12,9 +12,11 @@ const xmlParser = new XMLParser({
   trimValues: true,
 });
 
+import { DEFAULT_SOURCE_FETCH_TIMEOUT_SECONDS } from '../config';
+
 const FETCH_HEADERS = { 'User-Agent': 'newsbot/1.0' };
 
-const DEFAULT_SOURCE_FETCH_TIMEOUT_MS = 30_000;
+const DEFAULT_SOURCE_FETCH_TIMEOUT_MS = DEFAULT_SOURCE_FETCH_TIMEOUT_SECONDS * 1000;
 
 export type SourceFetchResult = {
   items: NewsItem[];

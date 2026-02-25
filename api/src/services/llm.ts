@@ -1,11 +1,5 @@
 import type { NewsItem, LlmProvider } from '../types';
-
-const DEFAULT_MODELS: Record<LlmProvider, string> = {
-  gemini: 'gemini-2.0-flash',
-  deepseek: 'deepseek-chat',
-  openai: 'gpt-4o-mini',
-  anthropic: 'claude-sonnet-4-5-20250929',
-};
+import { DEFAULT_LLM_MODELS } from '../config';
 
 function buildItemsText(items: NewsItem[]): string {
   return items.map((item) => `- ${item.title}\n  ${item.summary ?? ''}\n  ${item.url}`).join('\n');
@@ -109,7 +103,7 @@ export async function summarize(
   apiKey: string,
   model?: string | null
 ): Promise<string> {
-  const resolvedModel = model || DEFAULT_MODELS[provider];
+  const resolvedModel = model || DEFAULT_LLM_MODELS[provider];
 
   switch (provider) {
     case 'gemini':
@@ -216,7 +210,7 @@ export async function polishPrompt(
   apiKey: string,
   model?: string | null
 ): Promise<string> {
-  const resolvedModel = model || DEFAULT_MODELS[provider];
+  const resolvedModel = model || DEFAULT_LLM_MODELS[provider];
 
   switch (provider) {
     case 'gemini':
