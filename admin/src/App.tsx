@@ -400,6 +400,9 @@ function App() {
           method: "PUT",
           body: JSON.stringify(payload),
         });
+        setConfigSets((prev) =>
+          prev.map((cs) => (cs.id === payload.id ? { ...payload } : cs))
+        );
         setNotice("Config set updated successfully");
       } else {
         await apiFetch("/api/config-sets", {

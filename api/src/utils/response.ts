@@ -1,5 +1,6 @@
 const JSON_HEADERS = {
   'content-type': 'application/json;charset=UTF-8',
+  'cache-control': 'no-store',
 };
 
 export function jsonResponse(data: unknown, status = 200): Response {
