@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Icons } from "../Icons";
 import type { RunLog } from "../types";
 import { RunItem } from "./RunItem";
@@ -6,6 +6,10 @@ import { RunItem } from "./RunItem";
 type RunHistoryProps = {
   runs: RunLog[];
   sourceItemsLimit: number;
+  page: number;
+  totalPages: number;
+  totalRuns: number;
+  onPageChange: (page: number) => void;
   onDeleteOne: (id: number) => void;
   onDeleteMultiple: (ids: number[]) => void;
   onDeleteAll: () => void;
@@ -14,11 +18,19 @@ type RunHistoryProps = {
 export function RunHistory({
   runs,
   sourceItemsLimit,
+  page,
+  totalPages,
+  totalRuns,
+  onPageChange,
   onDeleteOne,
   onDeleteMultiple,
   onDeleteAll,
 }: RunHistoryProps) {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [page]);
 
   const handleSelect = (id: number, selected: boolean) => {
     setSelectedIds((prev) => {
@@ -110,18 +122,45 @@ export function RunHistory({
           </p>
         </div>
       ) : (
-        <div className="grid">
-          {runs.map((run) => (
-            <RunItem
-              key={run.id}
-              run={run}
-              sourceItemsLimit={sourceItemsLimit}
-              selected={selectedIds.has(run.id)}
-              onSelect={handleSelect}
-              onDelete={handleDeleteOne}
-            />
-          ))}
-        </div>
+        <>
+          <div className="grid">
+            {runs.map((run) => (
+              <RunItem
+                key={run.id}
+                run={run}
+                sourceItemsLimit={sourceItemsLimit}
+                selected={selectedIds.has(run.id)}
+                onSelect={handleSelect}
+                onDelete={handleDeleteOne}
+              />
+            ))}
+          </div>
+
+          {totalPages > 1 && (
+            <div className="pagination">
+              <button
+                className="btn btn-ghost btn-sm"
+                disabled={page <= 1}
+                onClick={() => onPageChange(page - 1)}
+              >
+                &laquo; Prev
+              </button>
+              <span className="pagination-info">
+                Page {page} of {totalPages}
+                <span className="pagination-total">
+                  ({totalRuns} total)
+                </span>
+              </span>
+              <button
+                className="btn btn-ghost btn-sm"
+                disabled={page >= totalPages}
+                onClick={() => onPageChange(page + 1)}
+              >
+                Next &raquo;
+              </button>
+            </div>
+          )}
+        </>
       )}
     </section>
   );

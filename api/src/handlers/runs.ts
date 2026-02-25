@@ -207,15 +207,24 @@ export async function handleRunConfigSet(env: Env, id: number): Promise<Response
   }
 }
 
-export async function handleListRuns(env: Env): Promise<Response> {
+export async function handleListRuns(env: Env, url: URL): Promise<Response> {
   await ensureRunLogSchema(env);
   await markTimedOutRuns(env);
 
-  const rows = await env.DB.prepare(
-    'SELECT run_log.id, run_log.config_set_id, config_set.name as config_name, run_log.started_at, run_log.status, run_log.status_history_json, run_log.item_count, run_log.error_message, run_log.email_id FROM run_log LEFT JOIN config_set ON run_log.config_set_id = config_set.id ORDER BY run_log.id DESC LIMIT 50'
-  ).all();
+  const page = Math.max(1, Number(url.searchParams.get('page')) || 1);
+  const limit = Math.min(100, Math.max(1, Number(url.searchParams.get('limit')) || 20));
+  const offset = (page - 1) * limit;
 
-  return jsonResponse(rows.results ?? []);
+  const countResult = await env.DB.prepare('SELECT COUNT(*) as total FROM run_log').first<{ total: number }>();
+  const total = countResult?.total ?? 0;
+
+  const rows = await env.DB.prepare(
+    'SELECT run_log.id, run_log.config_set_id, config_set.name as config_name, run_log.started_at, run_log.status, run_log.status_history_json, run_log.item_count, run_log.error_message, run_log.email_id FROM run_log LEFT JOIN config_set ON run_log.config_set_id = config_set.id ORDER BY run_log.id DESC LIMIT ? OFFSET ?'
+  )
+    .bind(limit, offset)
+    .all();
+
+  return jsonResponse({ data: rows.results ?? [], total, page, pageSize: limit });
 }
 
 export async function handleDeleteRun(env: Env, id: number): Promise<Response> {

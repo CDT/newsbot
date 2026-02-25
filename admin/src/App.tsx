@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
   GlobalSettings as GlobalSettingsType,
   ConfigSet,
+  PaginatedRuns,
   RunLog,
   RunNowResponse,
   ScheduleOption,
@@ -23,8 +24,17 @@ import {
 } from "./components";
 import type { TabId } from "./components";
 
+const VALID_TABS: Set<string> = new Set<TabId>(["settings", "sources", "configs", "history"]);
+const DEFAULT_TAB: TabId = "configs";
+
+function getTabFromHash(): TabId {
+  const hash = window.location.hash.replace(/^#/, "");
+  return VALID_TABS.has(hash) ? (hash as TabId) : DEFAULT_TAB;
+}
+
 const FINAL_RUN_STATUSES = new Set(["sent", "success", "error", "failed", "cancelled"]);
 const RUN_TIMEOUT_MS = 15 * 60 * 1000;
+const RUNS_PAGE_SIZE = 20;
 type RunProgressByConfigId = Record<number, { runId: number; messages: string[] }>;
 const FALLBACK_SCHEDULE_OPTIONS: ScheduleOption[] = [
   { cron: "0 0 * * *", label: "Daily at 08:00 UTC+8 (Wuhan)" },
@@ -103,8 +113,21 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<TabId>('configs');
+  const [activeTab, setActiveTab] = useState<TabId>(getTabFromHash);
   const [tabLoading, setTabLoading] = useState<Partial<Record<TabId, boolean>>>({});
+
+  useEffect(() => {
+    const newHash = `#${activeTab}`;
+    if (window.location.hash !== newHash) {
+      window.history.pushState(null, "", newHash);
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    const onHashChange = () => setActiveTab(getTabFromHash());
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
+  }, []);
 
   const [settings, setSettings] = useState<GlobalSettingsType>({
     resend_api_key: "",
@@ -120,6 +143,8 @@ function App() {
   const [configSets, setConfigSets] = useState<ConfigSet[]>([]);
   const [scheduleOptions, setScheduleOptions] = useState<ScheduleOption[]>(FALLBACK_SCHEDULE_OPTIONS);
   const [runs, setRuns] = useState<RunLog[]>([]);
+  const [runsPage, setRunsPage] = useState(1);
+  const [runsTotal, setRunsTotal] = useState(0);
   const [sources, setSources] = useState<Source[]>([]);
   const [sourceTestingId, setSourceTestingId] = useState<number | null>(null);
   const [sourceTestResult, setSourceTestResult] = useState<SourceTestResult | null>(null);
@@ -276,9 +301,12 @@ function App() {
     let cancelled = false;
     const pollRuns = async () => {
       try {
-        const data = (await apiFetch("/api/runs")) as RunLog[];
+        const data = (await apiFetch(
+          `/api/runs?page=${runsPage}&limit=${RUNS_PAGE_SIZE}`
+        )) as PaginatedRuns;
         if (!cancelled) {
-          setRuns(data);
+          setRuns(data.data);
+          setRunsTotal(data.total);
         }
       } catch {
         // Ignore polling errors during active runs.
@@ -294,7 +322,7 @@ function App() {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [token, activeRunningConfigIds.size, apiFetch]);
+  }, [token, activeRunningConfigIds.size, apiFetch, runsPage]);
 
   async function loadSettings() {
     return withTabLoading("settings", async () => {
@@ -342,10 +370,20 @@ function App() {
     }
   }
 
-  async function loadRuns() {
+  async function loadRuns(page?: number) {
+    const targetPage = page ?? runsPage;
     return withTabLoading("history", async () => {
-      const data = (await apiFetch("/api/runs")) as RunLog[];
-      setRuns(data);
+      const data = (await apiFetch(
+        `/api/runs?page=${targetPage}&limit=${RUNS_PAGE_SIZE}`
+      )) as PaginatedRuns;
+      setRuns(data.data);
+      setRunsTotal(data.total);
+      const totalPages = Math.max(1, Math.ceil(data.total / RUNS_PAGE_SIZE));
+      if (targetPage > totalPages) {
+        setRunsPage(totalPages);
+      } else {
+        setRunsPage(targetPage);
+      }
     })();
   }
 
@@ -464,7 +502,7 @@ function App() {
         setGeneratedEmailHtmlByConfigId((prev) => ({ ...prev, [id]: generatedHtml }));
       }
       setNotice("Run completed successfully");
-      await loadRuns();
+      await loadRuns(1);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Run failed");
     } finally {
@@ -512,7 +550,7 @@ function App() {
     try {
       await apiFetch("/api/runs/all", { method: "DELETE" });
       setNotice("All runs deleted");
-      await loadRuns();
+      await loadRuns(1);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete all runs");
     }
@@ -615,6 +653,10 @@ function App() {
           <RunHistory
             runs={runs}
             sourceItemsLimit={settings.source_items_limit}
+            page={runsPage}
+            totalPages={Math.max(1, Math.ceil(runsTotal / RUNS_PAGE_SIZE))}
+            totalRuns={runsTotal}
+            onPageChange={(p) => loadRuns(p)}
             onDeleteOne={deleteRun}
             onDeleteMultiple={deleteRuns}
             onDeleteAll={deleteAllRuns}

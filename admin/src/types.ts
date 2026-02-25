@@ -46,6 +46,13 @@ export type RunNowResponse = {
   html?: string;
 };
 
+export type PaginatedRuns = {
+  data: RunLog[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
 export type Source = {
   id: number;
   name: string;

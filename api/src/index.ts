@@ -112,7 +112,7 @@ async function handleRequest(
   }
 
   if (url.pathname === '/api/runs' && request.method === 'GET') {
-    return handleListRuns(env);
+    return handleListRuns(env, url);
   }
 
   if (url.pathname === '/api/runs/all' && request.method === 'DELETE') {
