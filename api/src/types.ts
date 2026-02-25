@@ -23,6 +23,7 @@ export type ConfigSet = {
   schedule_cron: string;
   prompt: string;
   recipients_json: string;
+  use_web_search: number;
 };
 
 export type LlmProvider = 'gemini' | 'deepseek' | 'openai' | 'anthropic';
@@ -36,6 +37,7 @@ export type GlobalSettings = {
   admin_email: string | null;
   source_items_limit: number;
   source_lookback_days: number | null;
+  tavily_api_key: string | null;
 };
 
 export type Source = {

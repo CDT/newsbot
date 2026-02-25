@@ -34,7 +34,7 @@ async function syncSourceIds(db: D1Database, configSetId: number, sourceIds: num
 
 export async function handleListConfigSets(env: Env): Promise<Response> {
   const rows = await env.DB.prepare(
-    'SELECT id, name, enabled, schedule_cron, prompt, recipients_json FROM config_set ORDER BY id DESC'
+    'SELECT id, name, enabled, schedule_cron, prompt, recipients_json, use_web_search FROM config_set ORDER BY id DESC'
   ).all<ConfigSet>();
 
   const configs: ConfigSetResponse[] = [];
@@ -61,9 +61,9 @@ export async function handleCreateConfigSet(request: Request, env: Env): Promise
   const sourceIds = body.source_ids ?? [];
 
   const result = await env.DB.prepare(
-    'INSERT INTO config_set (name, enabled, schedule_cron, prompt, recipients_json) VALUES (?, ?, ?, ?, ?)'
+    'INSERT INTO config_set (name, enabled, schedule_cron, prompt, recipients_json, use_web_search) VALUES (?, ?, ?, ?, ?, ?)'
   )
-    .bind(body.name, body.enabled ? 1 : 0, scheduleCron, body.prompt, recipients)
+    .bind(body.name, body.enabled ? 1 : 0, scheduleCron, body.prompt, recipients, body.use_web_search ? 1 : 0)
     .run();
 
   const newId = result.meta.last_row_id as number;
@@ -96,7 +96,7 @@ export async function handleUpdateConfigSet(
   }
 
   await env.DB.prepare(
-    'UPDATE config_set SET name = ?, enabled = ?, schedule_cron = ?, prompt = ?, recipients_json = ? WHERE id = ?'
+    'UPDATE config_set SET name = ?, enabled = ?, schedule_cron = ?, prompt = ?, recipients_json = ?, use_web_search = ? WHERE id = ?'
   )
     .bind(
       body.name,
@@ -104,6 +104,7 @@ export async function handleUpdateConfigSet(
       scheduleCron,
       body.prompt,
       body.recipients_json ?? '[]',
+      body.use_web_search ? 1 : 0,
       id
     )
     .run();

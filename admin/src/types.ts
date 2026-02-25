@@ -9,6 +9,7 @@ export type GlobalSettings = {
   admin_email: string | null;
   source_items_limit: number;
   source_lookback_days: number | null;
+  tavily_api_key: string | null;
 };
 
 export type ConfigSet = {
@@ -19,6 +20,7 @@ export type ConfigSet = {
   prompt: string;
   source_ids: number[];
   recipients_json: string;
+  use_web_search: number;
 };
 
 export type ScheduleOption = {

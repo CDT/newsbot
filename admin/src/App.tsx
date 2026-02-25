@@ -115,6 +115,7 @@ function App() {
     admin_email: "",
     source_items_limit: 20,
     source_lookback_days: null,
+    tavily_api_key: "",
   });
   const [configSets, setConfigSets] = useState<ConfigSet[]>([]);
   const [scheduleOptions, setScheduleOptions] = useState<ScheduleOption[]>(FALLBACK_SCHEDULE_OPTIONS);
@@ -135,6 +136,7 @@ function App() {
       prompt: "Summarize these items for a daily briefing.",
       source_ids: [],
       recipients_json: "[]",
+      use_web_search: 0,
     }),
     []
   );
@@ -307,6 +309,7 @@ function App() {
         source_items_limit:
           Number.isFinite(data.source_items_limit) && data.source_items_limit > 0 ? data.source_items_limit : 20,
         source_lookback_days: data.source_lookback_days ?? null,
+        tavily_api_key: data.tavily_api_key ?? "",
       });
     })();
   }

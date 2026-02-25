@@ -53,6 +53,7 @@ export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
   admin_email: null,
   source_items_limit: 20,
   source_lookback_days: null,
+  tavily_api_key: null,
 };
 
 // ── Env-aware helpers ────────────────────────────────────────────────

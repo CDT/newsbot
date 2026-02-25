@@ -196,12 +196,23 @@ export function ConfigSetForm({
       </div>
 
       <div className="form-footer">
-        <div className="toggle-wrapper">
-          <div
-            className={`toggle ${configForm.enabled ? "active" : ""}`}
-            onClick={() => onConfigFormChange({ ...configForm, enabled: configForm.enabled ? 0 : 1 })}
-          />
-          <span className="toggle-label">{configForm.enabled ? "Enabled" : "Disabled"}</span>
+        <div style={{ display: "flex", gap: "16px", alignItems: "center", flexWrap: "wrap" }}>
+          <div className="toggle-wrapper">
+            <div
+              className={`toggle ${configForm.enabled ? "active" : ""}`}
+              onClick={() => onConfigFormChange({ ...configForm, enabled: configForm.enabled ? 0 : 1 })}
+            />
+            <span className="toggle-label">{configForm.enabled ? "Enabled" : "Disabled"}</span>
+          </div>
+          <div className="toggle-wrapper">
+            <div
+              className={`toggle ${configForm.use_web_search ? "active" : ""}`}
+              onClick={() => onConfigFormChange({ ...configForm, use_web_search: configForm.use_web_search ? 0 : 1 })}
+            />
+            <span className="toggle-label">
+              <Icons.Search /> Web Search
+            </span>
+          </div>
         </div>
 
         <div className="btn-group">

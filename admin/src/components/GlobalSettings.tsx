@@ -26,6 +26,7 @@ type GlobalSettingsProps = {
 export function GlobalSettings({ settings, onSettingsChange, onSave, loading }: GlobalSettingsProps) {
   const [showResendKey, setShowResendKey] = useState(false);
   const [showLlmKey, setShowLlmKey] = useState(false);
+  const [showTavilyKey, setShowTavilyKey] = useState(false);
   const currentProvider = LLM_PROVIDERS.find((p) => p.value === settings.llm_provider) ?? LLM_PROVIDERS[0];
 
   return (
@@ -170,6 +171,26 @@ export function GlobalSettings({ settings, onSettingsChange, onSave, loading }: 
               }}
             />
           </div>
+        </div>
+        <div className="form-row">
+          <div className="form-group">
+            <label>
+              Tavily API Key
+              <span className="label-hint">(for web search enrichment)</span>
+            </label>
+            <div className="password-input-wrapper">
+              <input
+                type={showTavilyKey ? "text" : "password"}
+                placeholder="tvly-..."
+                value={settings.tavily_api_key ?? ""}
+                onChange={(event) => onSettingsChange({ ...settings, tavily_api_key: event.target.value })}
+              />
+              <button type="button" className="password-toggle" onClick={() => setShowTavilyKey(!showTavilyKey)}>
+                {showTavilyKey ? <Icons.EyeOff /> : <Icons.Eye />}
+              </button>
+            </div>
+          </div>
+          <div className="form-group" />
         </div>
         <div className="form-row">
           <div className="form-group" style={{ display: "flex", alignItems: "flex-end" }}>

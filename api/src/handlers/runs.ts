@@ -4,6 +4,7 @@ import { safeParseJsonArray } from '../utils/parsing';
 import { jsonResponse, escapeHtml } from '../utils/response';
 import { fetchRssItems, fetchApiItems, dedupeItems, filterByLookback } from '../services/sources';
 import { summarize } from '../services/llm';
+import { induceSearchQuery, searchTavily } from '../services/web-search';
 import { buildEmailHtml, buildEmailText, sendResendEmail } from '../services/email';
 import { getRunTimeoutMinutes, getSourceFetchTimeoutMs } from '../config';
 
@@ -188,7 +189,7 @@ export async function handleRunConfigSet(env: Env, id: number): Promise<Response
   await markTimedOutRuns(env);
 
   const config = await env.DB.prepare(
-    'SELECT id, name, enabled, schedule_cron, prompt, recipients_json FROM config_set WHERE id = ?'
+    'SELECT id, name, enabled, schedule_cron, prompt, recipients_json, use_web_search FROM config_set WHERE id = ?'
   )
     .bind(id)
     .first<ConfigSet>();
@@ -248,7 +249,7 @@ export async function getEnabledConfigSets(env: Env, cron: string): Promise<Conf
   await markTimedOutRuns(env);
 
   const rows = await env.DB.prepare(
-    "SELECT id, name, enabled, schedule_cron, prompt, recipients_json FROM config_set WHERE enabled = 1 AND (',' || schedule_cron || ',') LIKE ('%,' || ? || ',%')"
+    "SELECT id, name, enabled, schedule_cron, prompt, recipients_json, use_web_search FROM config_set WHERE enabled = 1 AND (',' || schedule_cron || ',') LIKE ('%,' || ? || ',%')"
   )
     .bind(cron)
     .all<ConfigSet>();
@@ -321,16 +322,29 @@ export async function runConfigSet(env: Env, config: ConfigSet): Promise<RunConf
     );
     const deduped = dedupeItems(items);
     const lookbackDays = settings.source_lookback_days;
-    const filtered = filterByLookback(deduped, lookbackDays);
+    let finalItems = filterByLookback(deduped, lookbackDays);
     const lookbackLabel = lookbackDays ? `, lookback ${lookbackDays}d` : '';
     await updateStatus(
-      `${filtered.length} items after dedup/filter (from ${totalSourceItemsProcessed}/${totalSourceItemsReported} source items, limit ${sourceItemsLimit} per source${lookbackLabel})`
+      `${finalItems.length} items after dedup/filter (from ${totalSourceItemsProcessed}/${totalSourceItemsReported} source items, limit ${sourceItemsLimit} per source${lookbackLabel})`
     );
+
+    const tavilyApiKey = settings.tavily_api_key?.trim();
+    if (config.use_web_search && tavilyApiKey) {
+      await updateStatus('Generating web search query from prompt');
+      const searchQuery = await induceSearchQuery(config.prompt, settings.llm_provider, settings.llm_api_key, settings.llm_model);
+      await updateStatus(`Searching web via Tavily: "${searchQuery}"`);
+      const webItems = await searchTavily(tavilyApiKey, searchQuery);
+      const beforeCount = finalItems.length;
+      finalItems = dedupeItems([...finalItems, ...webItems]);
+      const addedCount = finalItems.length - beforeCount;
+      await updateStatus(`Added ${addedCount} item(s) from web search (${finalItems.length} total)`);
+    }
+
     await updateStatus('Summarizing content');
-    const summary = await summarize(filtered, config.prompt, settings.llm_provider, settings.llm_api_key, settings.llm_model);
+    const summary = await summarize(finalItems, config.prompt, settings.llm_provider, settings.llm_api_key, settings.llm_model);
     await updateStatus('Generating html');
-    const html = buildEmailHtml(config.name, summary, filtered);
-    const text = buildEmailText(config.name, summary, filtered);
+    const html = buildEmailHtml(config.name, summary, finalItems);
+    const text = buildEmailText(config.name, summary, finalItems);
     await updateStatus(`Sending email to ${recipients.length} recipient(s)`);
 
     const emailId = await sendResendEmail(
@@ -345,7 +359,7 @@ export async function runConfigSet(env: Env, config: ConfigSet): Promise<RunConf
     await env.DB.prepare(
       "UPDATE run_log SET status = ?, status_history_json = json_insert(CASE WHEN json_valid(status_history_json) THEN status_history_json ELSE '[]' END, '$[#]', ?), item_count = ?, email_id = ? WHERE id = ?"
     )
-      .bind('sent', 'sent', filtered.length, emailId, runId)
+      .bind('sent', 'sent', finalItems.length, emailId, runId)
       .run();
     return { runId, html };
   } catch (error) {

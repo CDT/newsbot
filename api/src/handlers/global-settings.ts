@@ -16,13 +16,13 @@ export async function handleUpdateGlobalSettings(request: Request, env: Env): Pr
 
   await ensureGlobalSettingsSchema(env);
   await env.DB.prepare(
-    'INSERT OR IGNORE INTO global_settings (id, resend_api_key, llm_provider, llm_api_key, llm_model, default_sender, admin_email, source_items_limit, source_lookback_days) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?)'
+    'INSERT OR IGNORE INTO global_settings (id, resend_api_key, llm_provider, llm_api_key, llm_model, default_sender, admin_email, source_items_limit, source_lookback_days, tavily_api_key) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
   )
-    .bind('', 'gemini', '', null, '', '', 20, null)
+    .bind('', 'gemini', '', null, '', '', 20, null, '')
     .run();
 
   await env.DB.prepare(
-    'UPDATE global_settings SET resend_api_key = ?, llm_provider = ?, llm_api_key = ?, llm_model = ?, default_sender = ?, admin_email = ?, source_items_limit = ?, source_lookback_days = ? WHERE id = 1'
+    'UPDATE global_settings SET resend_api_key = ?, llm_provider = ?, llm_api_key = ?, llm_model = ?, default_sender = ?, admin_email = ?, source_items_limit = ?, source_lookback_days = ?, tavily_api_key = ? WHERE id = 1'
   )
     .bind(
       body.resend_api_key ?? '',
@@ -32,7 +32,8 @@ export async function handleUpdateGlobalSettings(request: Request, env: Env): Pr
       body.default_sender ?? '',
       body.admin_email ?? '',
       parseSourceItemsLimit(body.source_items_limit),
-      parseSourceLookbackDays(body.source_lookback_days)
+      parseSourceLookbackDays(body.source_lookback_days),
+      body.tavily_api_key ?? ''
     )
     .run();
 

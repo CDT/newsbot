@@ -89,6 +89,12 @@ export function ConfigSetCard({
             <span className="icon"><Icons.Mail /></span>
             {recipientsCount} recipients
           </div>
+          {config.use_web_search ? (
+            <div className="config-card-meta-item">
+              <span className="icon"><Icons.Search /></span>
+              Web search
+            </div>
+          ) : null}
         </div>
 
         <div className="config-card-actions">
