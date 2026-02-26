@@ -244,18 +244,7 @@ export function buildEmailHtml(title: string, summary: string, items: NewsItem[]
               </tr>`;
         })
         .join('')
-    : `
-          <tr>
-            <td style="padding:0 28px 14px;">
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:separate;background-color:#f8fafc;border:1px dashed #cbd5e1;border-radius:12px;">
-                <tr>
-                  <td style="padding:20px;color:#334155;font-size:14px;line-height:1.6;">
-                    No matching articles were found for this run.
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>`;
+    : '';
 
   return `<!doctype html>
 <html lang="en">
@@ -285,11 +274,11 @@ export function buildEmailHtml(title: string, summary: string, items: NewsItem[]
                 ${summaryHtml}
               </td>
             </tr>
-            <tr>
+            ${items.length ? `<tr>
               <td style="padding:0 0 8px;">
                 <h2 style="margin:0;padding:0 28px 12px;color:#0f172a;font-size:20px;">Top Stories</h2>
               </td>
-            </tr>
+            </tr>` : ''}
             ${articlesHtml}
             <tr>
               <td style="padding:10px 28px 24px;">
@@ -316,14 +305,13 @@ export function buildEmailText(title: string, summary: string, items: NewsItem[]
     '',
     summaryText || 'No summary was generated for this run.',
     '',
-    'Top Stories',
-    '',
   ];
 
   if (!items.length) {
-    lines.push('No matching articles were found for this run.');
-    return lines.join('\n');
+    return lines.join('\n').trimEnd();
   }
+
+  lines.push('Top Stories', '');
 
   items.forEach((item, index) => {
     lines.push(`${index + 1}. ${oneLineText(item.title) || 'Untitled article'}`);
