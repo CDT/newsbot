@@ -11,7 +11,7 @@ type ConfigSetCardProps = {
   generatedEmailHtml?: string;
   onEdit: (config: ConfigSet) => void;
   onRun: (id: number) => Promise<void>;
-  onDelete: (id: number) => void;
+  onDelete: (id: number) => Promise<void>;
 };
 
 const FINAL_STATUSES = new Set(["sent", "success", "error", "failed", "cancelled"]);
@@ -31,6 +31,7 @@ export function ConfigSetCard({
   onDelete,
 }: ConfigSetCardProps) {
   const [runError, setRunError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [showEmailPreview, setShowEmailPreview] = useState(false);
   const sourcesCount = config.source_ids.length;
   const recipientsCount = safeParseJsonArray(config.recipients_json).length;
@@ -48,6 +49,17 @@ export function ConfigSetCard({
       await onRun(config.id);
     } catch (err) {
       setRunError(err instanceof Error ? err.message : "Failed to run config set");
+    }
+  }
+
+  async function handleDelete() {
+    if (deleting) return;
+    if (!confirm("Are you sure you want to delete this config set?")) return;
+    setDeleting(true);
+    try {
+      await onDelete(config.id);
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -104,8 +116,8 @@ export function ConfigSetCard({
           <button className="btn btn-success btn-sm" disabled={running} onClick={handleRun}>
             {running ? <Icons.Loader /> : <Icons.Play />} {running ? "Running..." : "Run Now"}
           </button>
-          <button className="btn btn-danger btn-sm" onClick={() => onDelete(config.id)}>
-            <Icons.Trash /> Delete
+          <button className="btn btn-danger btn-sm" disabled={deleting} onClick={handleDelete}>
+            {deleting ? <Icons.Loader /> : <Icons.Trash />} {deleting ? "Deleting..." : "Delete"}
           </button>
         </div>
 

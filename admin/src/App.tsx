@@ -463,7 +463,6 @@ function App() {
   }
 
   async function deleteConfigSet(id: number) {
-    if (!confirm("Are you sure you want to delete this config set?")) return;
     setError(null);
     setNotice(null);
     try {

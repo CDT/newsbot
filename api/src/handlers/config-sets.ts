@@ -120,6 +120,7 @@ export async function handleDeleteConfigSet(env: Env, id: number): Promise<Respo
   if (!Number.isFinite(id)) {
     return jsonResponse({ error: 'Invalid id' }, 400);
   }
+  await env.DB.prepare('DELETE FROM run_log WHERE config_set_id = ?').bind(id).run();
   await env.DB.prepare('DELETE FROM config_set_source WHERE config_set_id = ?').bind(id).run();
   await env.DB.prepare('DELETE FROM config_set WHERE id = ?').bind(id).run();
   return jsonResponse({ ok: true });

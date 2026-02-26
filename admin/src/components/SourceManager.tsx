@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Icons } from "../Icons";
 import type { Source, SourceTestResult, NewsItem } from "../types";
 
+type DeleteHandler = () => Promise<void>;
+
 type SourceManagerProps = {
   sources: Source[];
   onSourcesChange: () => void;
@@ -66,7 +68,6 @@ export function SourceManager({
   }
 
   async function handleDelete(id: number) {
-    if (!confirm("Are you sure you want to delete this source?")) return;
     setError(null);
     try {
       await apiFetch(`/api/sources/${id}`, { method: "DELETE" });
@@ -309,12 +310,25 @@ function SourceForm({
 type SourceCardProps = {
   source: Source;
   onEdit: () => void;
-  onDelete: () => void;
+  onDelete: DeleteHandler;
   onTest: () => void;
   testing: boolean;
 };
 
 function SourceCard({ source, onEdit, onDelete, onTest, testing }: SourceCardProps) {
+  const [deleting, setDeleting] = useState(false);
+
+  async function handleDelete() {
+    if (deleting) return;
+    if (!confirm("Are you sure you want to delete this source?")) return;
+    setDeleting(true);
+    try {
+      await onDelete();
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   return (
     <div className="source-card">
       <div className="source-card-header">
@@ -363,8 +377,8 @@ function SourceCard({ source, onEdit, onDelete, onTest, testing }: SourceCardPro
         <button className="btn btn-secondary btn-sm" onClick={onEdit}>
           <Icons.Edit /> Edit
         </button>
-        <button className="btn btn-danger btn-sm" onClick={onDelete}>
-          <Icons.Trash /> Delete
+        <button className="btn btn-danger btn-sm" disabled={deleting} onClick={handleDelete}>
+          {deleting ? <Icons.Loader /> : <Icons.Trash />} {deleting ? "Deleting..." : "Delete"}
         </button>
       </div>
     </div>

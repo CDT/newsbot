@@ -6,11 +6,12 @@ type RunItemProps = {
   run: RunLog;
   sourceItemsLimit: number;
   selected?: boolean;
+  deleting?: boolean;
   onSelect?: (id: number, selected: boolean) => void;
   onDelete?: (id: number) => void;
 };
 
-export function RunItem({ run, sourceItemsLimit, selected, onSelect, onDelete }: RunItemProps) {
+export function RunItem({ run, sourceItemsLimit, selected, deleting, onSelect, onDelete }: RunItemProps) {
   const normalizedStatus = run.status.toLowerCase();
   const isSuccess = normalizedStatus === "sent" || normalizedStatus === "success";
   const isError = normalizedStatus === "error" || normalizedStatus === "failed";
@@ -66,10 +67,11 @@ export function RunItem({ run, sourceItemsLimit, selected, onSelect, onDelete }:
       {onDelete && (
         <button
           className="btn btn-ghost btn-sm"
+          disabled={deleting}
           onClick={() => onDelete(run.id)}
           title="Delete this run"
         >
-          <Icons.Trash />
+          {deleting ? <Icons.Loader /> : <Icons.Trash />}
         </button>
       )}
     </div>

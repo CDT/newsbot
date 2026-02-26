@@ -20,7 +20,7 @@ type ConfigSetListProps = {
   onStartEdit: (config: ConfigSet) => void;
   onNewConfig: () => void;
   onRunConfig: (id: number) => Promise<void>;
-  onDeleteConfig: (id: number) => void;
+  onDeleteConfig: (id: number) => Promise<void>;
   onPolishPrompt: (prompt: string) => Promise<string>;
 };
 
