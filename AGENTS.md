@@ -44,3 +44,39 @@
 - Store secrets with `wrangler secret put` (ADMIN_USERNAME, ADMIN_PASSWORD, JWT_SECRET).
 - Never commit API keys or expose secrets in frontend environment variables.
 - Match `config_set.schedule_cron` to cron strings defined in `wrangler.toml`.
+
+## Cursor Cloud specific instructions
+
+### Services overview
+
+| Service | Port | Command |
+|---|---|---|
+| Admin Frontend (Vite + React) | 5173 | `npm run dev:admin` (from repo root) |
+| API Worker (Cloudflare Worker) | 8787 | See note below |
+
+### Running the API Worker locally
+
+`npm run dev:api` calls `wrangler dev`, which requires Cloudflare authentication in non-interactive environments. To run locally without a Cloudflare API token, start the worker directly:
+
+```sh
+cd api && WRANGLER_SEND_METRICS=false wrangler dev --local
+```
+
+The `--local` flag uses a local SQLite-backed D1 instead of the remote Cloudflare D1 database.
+
+### Local D1 migrations
+
+After starting the local worker for the first time (or after resetting state), apply the schema:
+
+```sh
+WRANGLER_SEND_METRICS=false wrangler d1 execute newsbot --file db/migrations.sql --local
+```
+
+### Local credentials
+
+Copy `.dev.vars.example` to `.dev.vars` and fill in values. The admin login uses `ADMIN_USERNAME` / `ADMIN_PASSWORD` from `.dev.vars`. The Vite dev server proxies `/api` requests to `localhost:8787` (configured in `admin/vite.config.ts`).
+
+### Lint caveats
+
+- `npm run lint` (ESLint) fails because no `.eslintrc` config file exists in the repo. This is a known gap — ESLint v8 is expected.
+- `npm run format` (Prettier) runs but may report formatting differences. Use `prettier --write .` inside `admin/` or `api/` to auto-fix.
