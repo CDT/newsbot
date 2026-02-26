@@ -1,13 +1,12 @@
 import { Icons } from "../Icons";
-import type { ConfigSet, RunLog, ScheduleOption, Source } from "../types";
+import type { ConfigSet, ScheduleOption, Source } from "../types";
 import { ConfigSetCard } from "./ConfigSetCard";
 import { ConfigSetForm } from "./ConfigSetForm";
 
 type ConfigSetListProps = {
   configSets: ConfigSet[];
   runningConfigIds: ReadonlySet<number>;
-  latestRunsByConfigId: ReadonlyMap<number, RunLog>;
-  runProgressByConfigId: Readonly<Record<number, { runId: number; messages: string[] }>>;
+  runProgressByConfigId: Readonly<Record<number, string[]>>;
   generatedEmailHtmlByConfigId: Readonly<Record<number, string>>;
   configForm: ConfigSet;
   scheduleOptions: ScheduleOption[];
@@ -27,7 +26,6 @@ type ConfigSetListProps = {
 export function ConfigSetList({
   configSets,
   runningConfigIds,
-  latestRunsByConfigId,
   runProgressByConfigId,
   generatedEmailHtmlByConfigId,
   configForm,
@@ -83,8 +81,7 @@ export function ConfigSetList({
               key={config.id}
               config={config}
               running={runningConfigIds.has(config.id)}
-              latestRun={latestRunsByConfigId.get(config.id)}
-              progressMessages={runProgressByConfigId[config.id]?.messages ?? []}
+              progressMessages={runProgressByConfigId[config.id] ?? []}
               generatedEmailHtml={generatedEmailHtmlByConfigId[config.id]}
               onEdit={onStartEdit}
               onRun={onRunConfig}

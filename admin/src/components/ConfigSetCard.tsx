@@ -1,12 +1,11 @@
 import { useEffect, useState } from "react";
 import { Icons } from "../Icons";
-import type { ConfigSet, RunLog } from "../types";
+import type { ConfigSet } from "../types";
 import { safeParseJsonArray } from "../utils";
 
 type ConfigSetCardProps = {
   config: ConfigSet;
   running: boolean;
-  latestRun?: RunLog;
   progressMessages: string[];
   generatedEmailHtml?: string;
   onEdit: (config: ConfigSet) => void;
@@ -14,16 +13,9 @@ type ConfigSetCardProps = {
   onDelete: (id: number) => Promise<void>;
 };
 
-const FINAL_STATUSES = new Set(["sent", "success", "error", "failed", "cancelled"]);
-
-function isFinalStatus(status: string): boolean {
-  return FINAL_STATUSES.has(status.trim().toLowerCase());
-}
-
 export function ConfigSetCard({
   config,
   running,
-  latestRun,
   progressMessages,
   generatedEmailHtml,
   onEdit,
@@ -60,13 +52,6 @@ export function ConfigSetCard({
       await onDelete(config.id);
     } finally {
       setDeleting(false);
-    }
-  }
-
-  const displayedProgressMessages = [...progressMessages];
-  if (running && latestRun && !isFinalStatus(latestRun.status)) {
-    if (displayedProgressMessages[displayedProgressMessages.length - 1] !== latestRun.status) {
-      displayedProgressMessages.push(latestRun.status);
     }
   }
 
@@ -126,9 +111,9 @@ export function ConfigSetCard({
             <div className="config-card-progress-title">
               <Icons.Loader /> Running details
             </div>
-            {displayedProgressMessages.length > 0 ? (
+            {progressMessages.length > 0 ? (
               <div className="config-card-progress-list">
-                {displayedProgressMessages.map((message, index) => (
+                {progressMessages.map((message, index) => (
                   <div key={`${message}-${index}`} className="config-card-progress-item">
                     {message}
                   </div>

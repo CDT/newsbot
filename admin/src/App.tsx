@@ -32,10 +32,8 @@ function getTabFromHash(): TabId {
   return VALID_TABS.has(hash) ? (hash as TabId) : DEFAULT_TAB;
 }
 
-const FINAL_RUN_STATUSES = new Set(["sent", "success", "error", "failed", "cancelled"]);
-const RUN_TIMEOUT_MS = 15 * 60 * 1000;
 const RUNS_PAGE_SIZE = 20;
-type RunProgressByConfigId = Record<number, { runId: number; messages: string[] }>;
+type RunProgressByConfigId = Record<number, string[]>;
 const FALLBACK_SCHEDULE_OPTIONS: ScheduleOption[] = [
   { cron: "0 0 * * *", label: "Daily at 08:00 UTC+8 (Wuhan)" },
   { cron: "0 1 * * *", label: "Daily at 09:00 UTC+8 (Wuhan)" },
@@ -66,20 +64,6 @@ function normalizeScheduleCronForOptions(scheduleCron: string, scheduleOptions: 
   return scheduleOptions[0].cron;
 }
 
-function isRunInProgress(run: RunLog, nowMs = Date.now()): boolean {
-  const normalizedStatus = run.status.trim().toLowerCase();
-  if (FINAL_RUN_STATUSES.has(normalizedStatus)) {
-    return false;
-  }
-
-  const startedAtMs = Date.parse(run.started_at);
-  if (Number.isNaN(startedAtMs)) {
-    return false;
-  }
-
-  return nowMs - startedAtMs < RUN_TIMEOUT_MS;
-}
-
 function getRunStatusMessages(run: RunLog): string[] {
   const rawHistory = run.status_history_json;
   if (typeof rawHistory === "string" && rawHistory.trim().length > 0) {
@@ -97,15 +81,8 @@ function getRunStatusMessages(run: RunLog): string[] {
       // Fall through to status string fallback.
     }
   }
-  return run.status ? [run.status] : [];
-}
 
-function sameMessages(a: string[], b: string[]): boolean {
-  if (a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i += 1) {
-    if (a[i] !== b[i]) return false;
-  }
-  return true;
+  return run.status ? [run.status] : [];
 }
 
 function App() {
@@ -175,85 +152,6 @@ function App() {
 
   const { apiFetch } = useApi(token, handleUnauthorized);
   const { theme, toggleTheme } = useTheme();
-  const runningConfigIdsFromRuns = useMemo(() => {
-    const ids = new Set<number>();
-    const nowMs = Date.now();
-    for (const run of runs) {
-      if (isRunInProgress(run, nowMs)) {
-        ids.add(run.config_set_id);
-      }
-    }
-    return ids;
-  }, [runs]);
-
-  const activeRunningConfigIds = useMemo(() => {
-    const ids = new Set<number>(runningConfigIds);
-    for (const id of runningConfigIdsFromRuns) {
-      ids.add(id);
-    }
-    return ids;
-  }, [runningConfigIds, runningConfigIdsFromRuns]);
-  const latestRunsByConfigId = useMemo(() => {
-    const byConfig = new Map<number, RunLog>();
-    for (const run of runs) {
-      if (!byConfig.has(run.config_set_id)) {
-        byConfig.set(run.config_set_id, run);
-      }
-    }
-    return byConfig;
-  }, [runs]);
-
-  useEffect(() => {
-    const nowMs = Date.now();
-    setRunProgressByConfigId((prev) => {
-      let changed = false;
-      const next: RunProgressByConfigId = { ...prev };
-
-      for (const [configId, latestRun] of latestRunsByConfigId) {
-        if (!isRunInProgress(latestRun, nowMs)) {
-          if (!runningConfigIds.has(configId) && next[configId]) {
-            delete next[configId];
-            changed = true;
-          }
-          continue;
-        }
-
-        const messages = getRunStatusMessages(latestRun);
-        const previous = next[configId];
-        if (!previous || previous.runId !== latestRun.id) {
-          next[configId] = { runId: latestRun.id, messages };
-          changed = true;
-          continue;
-        }
-
-        if (!sameMessages(previous.messages, messages)) {
-          next[configId] = {
-            runId: previous.runId,
-            messages,
-          };
-          changed = true;
-        }
-      }
-
-      for (const configIdText of Object.keys(next)) {
-        const configId = Number(configIdText);
-        const latestRun = latestRunsByConfigId.get(configId);
-
-        if (!latestRun && !runningConfigIds.has(configId)) {
-          delete next[configId];
-          changed = true;
-          continue;
-        }
-
-        if (latestRun && !isRunInProgress(latestRun, nowMs) && !runningConfigIds.has(configId)) {
-          delete next[configId];
-          changed = true;
-        }
-      }
-
-      return changed ? next : prev;
-    });
-  }, [latestRunsByConfigId, runningConfigIds]);
 
   const withTabLoading = useCallback(
     <T,>(tab: TabId, fn: () => Promise<T>) => async () => {
@@ -296,33 +194,55 @@ function App() {
   }, [scheduleOptions]);
 
   useEffect(() => {
-    if (!token || activeRunningConfigIds.size === 0) return;
+    if (!token || runningConfigIds.size === 0) return;
 
     let cancelled = false;
-    const pollRuns = async () => {
+    const pollRunProgress = async () => {
       try {
-        const data = (await apiFetch(
-          `/api/runs?page=${runsPage}&limit=${RUNS_PAGE_SIZE}`
-        )) as PaginatedRuns;
-        if (!cancelled) {
-          setRuns(data.data);
-          setRunsTotal(data.total);
+        const data = (await apiFetch(`/api/runs?page=1&limit=${RUNS_PAGE_SIZE}`)) as PaginatedRuns;
+        if (cancelled) {
+          return;
         }
+
+        const latestRunsByConfigId = new Map<number, RunLog>();
+        for (const run of data.data) {
+          if (!runningConfigIds.has(run.config_set_id) || latestRunsByConfigId.has(run.config_set_id)) {
+            continue;
+          }
+          latestRunsByConfigId.set(run.config_set_id, run);
+        }
+
+        setRunProgressByConfigId((prev) => {
+          const next: RunProgressByConfigId = {};
+
+          for (const configId of runningConfigIds) {
+            const latestRun = latestRunsByConfigId.get(configId);
+            if (latestRun) {
+              next[configId] = getRunStatusMessages(latestRun);
+              continue;
+            }
+
+            const previous = prev[configId];
+            next[configId] = previous && previous.length > 0 ? previous : ["Starting run..."];
+          }
+
+          return next;
+        });
       } catch {
-        // Ignore polling errors during active runs.
+        // Ignore progress polling errors during active runs.
       }
     };
 
-    void pollRuns();
+    void pollRunProgress();
     const timer = window.setInterval(() => {
-      void pollRuns();
-    }, 2000);
+      void pollRunProgress();
+    }, 1500);
 
     return () => {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [token, activeRunningConfigIds.size, apiFetch, runsPage]);
+  }, [token, apiFetch, runningConfigIds]);
 
   async function loadSettings() {
     return withTabLoading("settings", async () => {
@@ -475,19 +395,13 @@ function App() {
   }
 
   async function triggerRun(id: number) {
-    if (activeRunningConfigIds.has(id)) {
+    if (runningConfigIds.has(id)) {
       return;
     }
 
+    setError(null);
     setNotice(null);
-    setRunProgressByConfigId((prev) => {
-      if (!prev[id]) {
-        return prev;
-      }
-      const next = { ...prev };
-      delete next[id];
-      return next;
-    });
+    setRunProgressByConfigId((prev) => ({ ...prev, [id]: ["Starting run..."] }));
     setRunningConfigIds((prev) => {
       const next = new Set(prev);
       next.add(id);
@@ -505,6 +419,14 @@ function App() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Run failed");
     } finally {
+      setRunProgressByConfigId((prev) => {
+        if (!prev[id]) {
+          return prev;
+        }
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
       setRunningConfigIds((prev) => {
         if (!prev.has(id)) {
           return prev;
@@ -628,8 +550,7 @@ function App() {
         {activeTab === 'configs' && (
           <ConfigSetList
             configSets={configSets}
-            runningConfigIds={activeRunningConfigIds}
-            latestRunsByConfigId={latestRunsByConfigId}
+            runningConfigIds={runningConfigIds}
             runProgressByConfigId={runProgressByConfigId}
             generatedEmailHtmlByConfigId={generatedEmailHtmlByConfigId}
             configForm={configForm}
