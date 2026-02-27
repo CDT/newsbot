@@ -29,11 +29,11 @@ export type ScheduleOption = {
 };
 
 export const ALLOWED_SCHEDULES: ScheduleOption[] = [
-  { cron: '0 0 * * *', label: 'Daily at 08:00 UTC+8 (Wuhan)' },
-  { cron: '0 1 * * *', label: 'Daily at 09:00 UTC+8 (Wuhan)' },
-  { cron: '0 2 * * *', label: 'Daily at 10:00 UTC+8 (Wuhan)' },
-  { cron: '0 7 * * *', label: 'Daily at 15:00 UTC+8 (Wuhan)' },
-  { cron: '0 8 * * *', label: 'Daily at 16:00 UTC+8 (Wuhan)' },
+  { cron: '0 23 * * *', label: 'Daily at 07:00 UTC+8 (Shanghai)' },
+  { cron: '0 2 * * *', label: 'Daily at 10:00 UTC+8 (Shanghai)' },
+  { cron: '0 6 * * *', label: 'Daily at 14:00 UTC+8 (Shanghai)' },
+  { cron: '0 10 * * *', label: 'Daily at 18:00 UTC+8 (Shanghai)' },
+  { cron: '0 13 * * *', label: 'Daily at 21:00 UTC+8 (Shanghai)' },
 ];
 
 const ALLOWED_SCHEDULE_SET = new Set(ALLOWED_SCHEDULES.map((o) => o.cron));

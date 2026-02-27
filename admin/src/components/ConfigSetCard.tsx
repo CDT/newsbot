@@ -73,7 +73,7 @@ export function ConfigSetCard({
               {config.schedule_cron.split(",").map((cron) => {
                 const trimmed = cron.trim();
                 const hourMatch = trimmed.match(/^0\s+(\d+)\s/);
-                const label = hourMatch ? `${String(Number(hourMatch[1]) + 8).padStart(2, "0")}:00` : trimmed;
+                const label = hourMatch ? `${String((Number(hourMatch[1]) + 8) % 24).padStart(2, "0")}:00` : trimmed;
                 return <code key={trimmed} className="schedule-badge">{label}</code>;
               })}
             </span>
