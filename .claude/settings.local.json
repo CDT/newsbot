@@ -9,7 +9,8 @@
       "Bash(del \"c:\\\\dev\\\\newsbot\\\\api\\\\src\\\\services\\\\gemini.ts\")",
       "Bash(npm run lint:*)",
       "Bash(npm run build:admin:*)",
-      "mcp__ide__getDiagnostics"
+      "mcp__ide__getDiagnostics",
+      "Bash(npm test:*)"
     ]
   }
 }

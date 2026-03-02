@@ -102,12 +102,17 @@ interface RssItemRaw {
 
 function parseRssItems(items: unknown[]): NewsItem[] {
   return (items as RssItemRaw[])
-    .map((item) => ({
-      title: str(item.title) ?? 'Untitled',
-      url: str(item.link) ?? '',
-      publishedAt: str(item.pubDate) ?? undefined,
-      summary: str(item.description) ?? undefined,
-    }))
+    .map((item) => {
+      const raw = str(item.description);
+      const extracted = raw ? extractImageAndStripHtml(raw) : null;
+      return {
+        title: str(item.title) ?? 'Untitled',
+        url: str(item.link) ?? '',
+        publishedAt: str(item.pubDate) ?? undefined,
+        summary: extracted?.text || raw || undefined,
+        imageUrl: extracted?.imageUrl,
+      };
+    })
     .filter((item) => item.url);
 }
 
@@ -141,16 +146,41 @@ function parseAtomEntries(entries: unknown[]): NewsItem[] {
       }
 
       const publishedAt = str(entry.published) ?? str(entry.updated) ?? undefined;
-      const summary = textOf(entry.summary) ?? textOf(entry.content) ?? undefined;
+      const rawSummary = textOf(entry.summary) ?? textOf(entry.content) ?? undefined;
+      const extracted = rawSummary ? extractImageAndStripHtml(rawSummary) : null;
 
       return {
         title: textOf(entry.title) ?? 'Untitled',
         url,
         publishedAt,
-        summary,
+        summary: extracted?.text || rawSummary || undefined,
+        imageUrl: extracted?.imageUrl,
       };
     })
     .filter((item) => item.url);
+}
+
+/** Extract the first image URL and strip all HTML tags from a string. */
+function extractImageAndStripHtml(html: string): { text: string; imageUrl?: string } {
+  // Extract src from the first <img> tag
+  const imgMatch = html.match(/<img[^>]+src\s*=\s*["']([^"']+)["'][^>]*>/i);
+  let imageUrl: string | undefined;
+  if (imgMatch?.[1]) {
+    try {
+      const parsed = new URL(imgMatch[1]);
+      if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+        imageUrl = parsed.toString();
+      }
+    } catch {
+      // ignore invalid URLs
+    }
+  }
+  // Strip all HTML tags and collapse whitespace
+  const text = html
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return { text: text || undefined as unknown as string, imageUrl };
 }
 
 /** Coerce a value to a trimmed string, or null if empty/missing. */
@@ -193,12 +223,17 @@ export async function fetchApiItems(
   return {
     items: items
       .slice(0, itemsLimit)
-      .map((item) => ({
-        title: String(item.title ?? 'Untitled'),
-        url: String(item.url ?? item.link ?? ''),
-        publishedAt: item.published_at ? String(item.published_at) : undefined,
-        summary: item.summary ? String(item.summary) : undefined,
-      }))
+      .map((item) => {
+        const rawSummary = item.summary ? String(item.summary) : undefined;
+        const extracted = rawSummary ? extractImageAndStripHtml(rawSummary) : null;
+        return {
+          title: String(item.title ?? 'Untitled'),
+          url: String(item.url ?? item.link ?? ''),
+          publishedAt: item.published_at ? String(item.published_at) : undefined,
+          summary: extracted?.text || rawSummary || undefined,
+          imageUrl: extracted?.imageUrl,
+        };
+      })
       .filter((item) => item.url),
     totalItemCount: items.length,
     processedItemCount,

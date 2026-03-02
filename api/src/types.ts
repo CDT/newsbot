@@ -14,6 +14,7 @@ export type NewsItem = {
   url: string;
   publishedAt?: string;
   summary?: string;
+  imageUrl?: string;
 };
 
 export type ConfigSet = {

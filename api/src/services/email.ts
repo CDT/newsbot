@@ -213,10 +213,16 @@ export function buildEmailHtml(title: string, summary: string, items: NewsItem[]
           const metadata = [`Article ${index + 1}`];
           if (publishedLabel) metadata.push(publishedLabel);
 
+          const imageHtml = item.imageUrl
+            ? `<tr><td style="padding:0;"><img src="${escapeHtml(sanitizeUrl(item.imageUrl))}" alt="" style="width:100%;max-width:100%;height:auto;border-radius:12px 12px 0 0;display:block;" /></td></tr>`
+            : '';
+          const cardRadius = item.imageUrl ? 'border-radius:12px;overflow:hidden;' : 'border-radius:12px;';
+
           return `
               <tr>
                 <td style="padding:0 28px 14px;">
-                  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:separate;background-color:#f8fafc;border:1px solid #e5e7eb;border-radius:12px;">
+                  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:separate;background-color:#f8fafc;border:1px solid #e5e7eb;${cardRadius}">
+                    ${imageHtml}
                     <tr>
                       <td style="padding:16px 18px;">
                         <p style="margin:0 0 10px;color:#64748b;font-size:12px;font-weight:700;letter-spacing:0.02em;text-transform:uppercase;">${escapeHtml(
