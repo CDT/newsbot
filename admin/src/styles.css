@@ -780,6 +780,48 @@ html[data-theme="dark"] select {
   color: var(--color-gray-400);
 }
 
+.config-card-web-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: var(--space-3);
+  padding: 8px 10px;
+  background: var(--color-gray-50);
+  border: 1px solid var(--color-gray-100);
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  color: var(--color-text);
+  overflow: hidden;
+}
+
+.config-card-web-search .icon {
+  flex-shrink: 0;
+  color: var(--color-gray-400);
+}
+
+.config-card-web-search .icon svg {
+  width: 13px;
+  height: 13px;
+}
+
+.config-card-web-search-query {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-gray-600);
+}
+
+.config-card-web-search-tag {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  padding: 1px 6px;
+  background: var(--color-gray-100);
+  border-radius: 4px;
+  color: var(--color-gray-500);
+}
+
 .config-card-actions {
   display: flex;
   gap: var(--space-2);

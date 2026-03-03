@@ -8,7 +8,8 @@ CREATE TABLE IF NOT EXISTS global_settings (
   admin_email TEXT,
   source_items_limit INTEGER NOT NULL DEFAULT 20,
   source_lookback_days INTEGER,
-  tavily_api_key TEXT
+  tavily_api_key TEXT,
+  serp_api_key TEXT
 );
 
 INSERT OR IGNORE INTO global_settings (
@@ -21,9 +22,10 @@ INSERT OR IGNORE INTO global_settings (
   admin_email,
   source_items_limit,
   source_lookback_days,
-  tavily_api_key
+  tavily_api_key,
+  serp_api_key
 )
-VALUES (1, '', 'gemini', '', NULL, '', '', 20, NULL, '');
+VALUES (1, '', 'gemini', '', NULL, '', '', 20, NULL, '', '');
 
 CREATE TABLE IF NOT EXISTS config_set (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -32,7 +34,11 @@ CREATE TABLE IF NOT EXISTS config_set (
   schedule_cron TEXT NOT NULL,
   prompt TEXT NOT NULL,
   recipients_json TEXT NOT NULL,
-  use_web_search INTEGER NOT NULL DEFAULT 0
+  use_web_search INTEGER NOT NULL DEFAULT 0,
+  web_search_query TEXT,
+  web_search_provider TEXT NOT NULL DEFAULT 'tavily',
+  serp_engine TEXT,
+  web_search_max_results INTEGER NOT NULL DEFAULT 10
 );
 
 CREATE INDEX IF NOT EXISTS idx_config_set_enabled ON config_set(enabled);

@@ -5,6 +5,7 @@ import {
   handleListConfigSets,
   handleCreateConfigSet,
   handleUpdateConfigSet,
+  handlePatchConfigSet,
   handleDeleteConfigSet,
 } from './handlers/config-sets';
 import {
@@ -99,6 +100,11 @@ async function handleRequest(
   if (url.pathname.startsWith('/api/config-sets/') && request.method === 'PUT') {
     const id = Number(url.pathname.split('/').pop());
     return handleUpdateConfigSet(request, env, id);
+  }
+
+  if (url.pathname.startsWith('/api/config-sets/') && request.method === 'PATCH') {
+    const id = Number(url.pathname.split('/').pop());
+    return handlePatchConfigSet(request, env, id);
   }
 
   if (url.pathname.startsWith('/api/config-sets/') && request.method === 'DELETE') {

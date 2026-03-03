@@ -4,7 +4,7 @@ import { safeParseJsonArray } from '../utils/parsing';
 import { jsonResponse, escapeHtml } from '../utils/response';
 import { fetchRssItems, fetchApiItems, dedupeItems, filterByLookback } from '../services/sources';
 import { summarize } from '../services/llm';
-import { induceSearchQuery, searchTavily } from '../services/web-search';
+import { searchTavily, searchSerp } from '../services/web-search';
 import { buildEmailHtml, buildEmailText, sendResendEmail } from '../services/email';
 import { getRunTimeoutMinutes, getSourceFetchTimeoutMs } from '../config';
 
@@ -189,7 +189,7 @@ export async function handleRunConfigSet(env: Env, id: number): Promise<Response
   await markTimedOutRuns(env);
 
   const config = await env.DB.prepare(
-    'SELECT id, name, enabled, schedule_cron, prompt, recipients_json, use_web_search FROM config_set WHERE id = ?'
+    'SELECT id, name, enabled, schedule_cron, prompt, recipients_json, use_web_search, web_search_query, web_search_provider, serp_engine, web_search_max_results FROM config_set WHERE id = ?'
   )
     .bind(id)
     .first<ConfigSet>();
@@ -258,7 +258,7 @@ export async function getEnabledConfigSets(env: Env, cron: string): Promise<Conf
   await markTimedOutRuns(env);
 
   const rows = await env.DB.prepare(
-    "SELECT id, name, enabled, schedule_cron, prompt, recipients_json, use_web_search FROM config_set WHERE enabled = 1 AND (',' || schedule_cron || ',') LIKE ('%,' || ? || ',%')"
+    "SELECT id, name, enabled, schedule_cron, prompt, recipients_json, use_web_search, web_search_query, web_search_provider, serp_engine, web_search_max_results FROM config_set WHERE enabled = 1 AND (',' || schedule_cron || ',') LIKE ('%,' || ? || ',%')"
   )
     .bind(cron)
     .all<ConfigSet>();
@@ -337,12 +337,24 @@ export async function runConfigSet(env: Env, config: ConfigSet): Promise<RunConf
       `${finalItems.length} items after dedup/filter (from ${totalSourceItemsProcessed}/${totalSourceItemsReported} source items, limit ${sourceItemsLimit} per source${lookbackLabel})`
     );
 
+    const searchQuery = config.web_search_query?.trim();
+    const searchProvider = config.web_search_provider ?? 'tavily';
     const tavilyApiKey = settings.tavily_api_key?.trim();
-    if (config.use_web_search && tavilyApiKey) {
-      await updateStatus('Generating web search query from prompt');
-      const searchQuery = await induceSearchQuery(config.prompt, settings.llm_provider, settings.llm_api_key, settings.llm_model);
-      await updateStatus(`Searching web via Tavily: "${searchQuery}"`);
-      const webItems = await searchTavily(tavilyApiKey, searchQuery);
+    const serpApiKey = settings.serp_api_key?.trim();
+    const hasSearchKey = searchProvider === 'serp' ? !!serpApiKey : !!tavilyApiKey;
+
+    if (searchQuery && hasSearchKey) {
+      const maxResults = config.web_search_max_results ?? 10;
+      let webItems: NewsItem[];
+      if (searchProvider === 'serp' && serpApiKey) {
+        const engine = config.serp_engine?.trim() || 'google';
+        await updateStatus(`Searching web via SerpApi (${engine}): "${searchQuery}"`);
+        webItems = await searchSerp(serpApiKey, searchQuery, engine, maxResults);
+      } else {
+        await updateStatus(`Searching web via Tavily: "${searchQuery}"`);
+        webItems = await searchTavily(tavilyApiKey!, searchQuery, maxResults);
+      }
+
       const beforeCount = finalItems.length;
       finalItems = dedupeItems([...finalItems, ...webItems]);
       const addedCount = finalItems.length - beforeCount;

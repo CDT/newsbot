@@ -146,6 +146,13 @@ function parseSummaryBlocks(summary: string): SummaryBlock[] {
 
     flushUnorderedItems();
     flushOrderedItems();
+
+    // If the line starts with a bold label (e.g. **项目名称：**), treat it as
+    // its own paragraph so structured label-value output doesn't get merged.
+    if (line.startsWith('**') && paragraphLines.length > 0) {
+      flushParagraph();
+    }
+
     paragraphLines.push(line);
   }
 

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Icons } from "../Icons";
-import type { ConfigSet, ScheduleOption, Source } from "../types";
+import type { ConfigSet, ScheduleOption, Source, WebSearchProvider } from "../types";
 
 type ConfigSetFormProps = {
   configForm: ConfigSet;
@@ -195,6 +195,83 @@ export function ConfigSetForm({
         </div>
       </div>
 
+      <div className="form-group">
+        <label>
+          <Icons.Search /> Web Search
+          <span className="label-hint">(enter a query to enable)</span>
+        </label>
+        <input
+          type="text"
+          placeholder="e.g. latest AI news, blockchain regulation..."
+          value={configForm.web_search_query ?? ""}
+          onChange={(event) =>
+            onConfigFormChange({
+              ...configForm,
+              web_search_query: event.target.value || null,
+              use_web_search: event.target.value.trim() ? 1 : 0,
+            })
+          }
+        />
+        {configForm.web_search_query?.trim() ? (
+          <div className="form-row" style={{ marginTop: "8px" }}>
+            <div className="form-group">
+              <label>Provider</label>
+              <select
+                value={configForm.web_search_provider ?? "tavily"}
+                onChange={(event) =>
+                  onConfigFormChange({
+                    ...configForm,
+                    web_search_provider: event.target.value as WebSearchProvider,
+                    serp_engine: event.target.value === "serp" ? (configForm.serp_engine ?? "google") : null,
+                  })
+                }
+              >
+                <option value="tavily">Tavily</option>
+                <option value="serp">SerpApi</option>
+              </select>
+            </div>
+            {configForm.web_search_provider === "serp" && (
+              <div className="form-group">
+                <label>Engine</label>
+                <input
+                  type="text"
+                  list="serp-engines"
+                  placeholder="google"
+                  value={configForm.serp_engine ?? ""}
+                  onChange={(event) => onConfigFormChange({ ...configForm, serp_engine: event.target.value || null })}
+                />
+                <datalist id="serp-engines">
+                  <option value="google" />
+                  <option value="baidu" />
+                  <option value="bing" />
+                  <option value="yahoo" />
+                  <option value="yandex" />
+                  <option value="duckduckgo" />
+                  <option value="google_news" />
+                </datalist>
+              </div>
+            )}
+            <div className="form-group">
+              <label>Max Results</label>
+              <input
+                type="number"
+                min={1}
+                max={50}
+                step={1}
+                value={configForm.web_search_max_results ?? 10}
+                onChange={(event) => {
+                  const parsed = Number.parseInt(event.target.value, 10);
+                  onConfigFormChange({
+                    ...configForm,
+                    web_search_max_results: Number.isFinite(parsed) && parsed > 0 ? parsed : 10,
+                  });
+                }}
+              />
+            </div>
+          </div>
+        ) : null}
+      </div>
+
       <div className="form-footer">
         <div style={{ display: "flex", gap: "16px", alignItems: "center", flexWrap: "wrap" }}>
           <div className="toggle-wrapper">
@@ -203,15 +280,6 @@ export function ConfigSetForm({
               onClick={() => onConfigFormChange({ ...configForm, enabled: configForm.enabled ? 0 : 1 })}
             />
             <span className="toggle-label">{configForm.enabled ? "Enabled" : "Disabled"}</span>
-          </div>
-          <div className="toggle-wrapper">
-            <div
-              className={`toggle ${configForm.use_web_search ? "active" : ""}`}
-              onClick={() => onConfigFormChange({ ...configForm, use_web_search: configForm.use_web_search ? 0 : 1 })}
-            />
-            <span className="toggle-label">
-              <Icons.Search /> Web Search
-            </span>
           </div>
         </div>
 

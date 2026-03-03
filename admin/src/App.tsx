@@ -116,6 +116,7 @@ function App() {
     source_items_limit: 20,
     source_lookback_days: null,
     tavily_api_key: "",
+    serp_api_key: "",
   });
   const [configSets, setConfigSets] = useState<ConfigSet[]>([]);
   const [scheduleOptions, setScheduleOptions] = useState<ScheduleOption[]>(FALLBACK_SCHEDULE_OPTIONS);
@@ -139,6 +140,10 @@ function App() {
       source_ids: [],
       recipients_json: "[]",
       use_web_search: 0,
+      web_search_query: null,
+      web_search_provider: "tavily",
+      serp_engine: null,
+      web_search_max_results: 10,
     }),
     []
   );
@@ -258,6 +263,7 @@ function App() {
           Number.isFinite(data.source_items_limit) && data.source_items_limit > 0 ? data.source_items_limit : 20,
         source_lookback_days: data.source_lookback_days ?? null,
         tavily_api_key: data.tavily_api_key ?? "",
+        serp_api_key: data.serp_api_key ?? "",
       });
     })();
   }

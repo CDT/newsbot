@@ -72,6 +72,16 @@ export async function ensureGlobalSettingsSchema(env: Env): Promise<void> {
         }
       }
     }
+
+    if (!existingColumns.has('serp_api_key')) {
+      try {
+        await env.DB.prepare('ALTER TABLE global_settings ADD COLUMN serp_api_key TEXT').run();
+      } catch (error) {
+        if (!isDuplicateColumnError(error)) {
+          throw error;
+        }
+      }
+    }
   })();
 
   try {
@@ -86,7 +96,7 @@ export async function getGlobalSettings(env: Env): Promise<GlobalSettings | null
 
   const row = await env.DB
     .prepare(
-      'SELECT resend_api_key, llm_provider, llm_api_key, llm_model, default_sender, admin_email, source_items_limit, source_lookback_days, tavily_api_key FROM global_settings WHERE id = 1'
+      'SELECT resend_api_key, llm_provider, llm_api_key, llm_model, default_sender, admin_email, source_items_limit, source_lookback_days, tavily_api_key, serp_api_key FROM global_settings WHERE id = 1'
     )
     .first<Omit<GlobalSettings, 'source_items_limit' | 'source_lookback_days'> & { source_items_limit: unknown; source_lookback_days: unknown }>();
 

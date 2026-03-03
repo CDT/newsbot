@@ -86,13 +86,22 @@ export function ConfigSetCard({
             <span className="icon"><Icons.Mail /></span>
             {recipientsCount} recipients
           </div>
-          {config.use_web_search ? (
-            <div className="config-card-meta-item">
-              <span className="icon"><Icons.Search /></span>
-              Web search
-            </div>
-          ) : null}
         </div>
+
+        {config.web_search_query?.trim() ? (
+          <div className="config-card-web-search">
+            <span className="icon"><Icons.Search /></span>
+            <span className="config-card-web-search-query">
+              {config.web_search_query}
+            </span>
+            <code className="config-card-web-search-tag">
+              {config.web_search_provider === "serp"
+                ? `SerpApi / ${config.serp_engine || "google"}`
+                : "Tavily"}
+            </code>
+            <code className="config-card-web-search-tag">{config.web_search_max_results ?? 10} results</code>
+          </div>
+        ) : null}
 
         <div className="config-card-actions">
           <button className="btn btn-secondary btn-sm" onClick={() => onEdit(config)}>

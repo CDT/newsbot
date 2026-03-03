@@ -27,6 +27,7 @@ export function GlobalSettings({ settings, onSettingsChange, onSave, loading }: 
   const [showResendKey, setShowResendKey] = useState(false);
   const [showLlmKey, setShowLlmKey] = useState(false);
   const [showTavilyKey, setShowTavilyKey] = useState(false);
+  const [showSerpKey, setShowSerpKey] = useState(false);
   const currentProvider = LLM_PROVIDERS.find((p) => p.value === settings.llm_provider) ?? LLM_PROVIDERS[0];
 
   return (
@@ -190,7 +191,23 @@ export function GlobalSettings({ settings, onSettingsChange, onSave, loading }: 
               </button>
             </div>
           </div>
-          <div className="form-group" />
+          <div className="form-group">
+            <label>
+              SerpApi Key
+              <span className="label-hint">(for SERP web search)</span>
+            </label>
+            <div className="password-input-wrapper">
+              <input
+                type={showSerpKey ? "text" : "password"}
+                placeholder="..."
+                value={settings.serp_api_key ?? ""}
+                onChange={(event) => onSettingsChange({ ...settings, serp_api_key: event.target.value })}
+              />
+              <button type="button" className="password-toggle" onClick={() => setShowSerpKey(!showSerpKey)}>
+                {showSerpKey ? <Icons.EyeOff /> : <Icons.Eye />}
+              </button>
+            </div>
+          </div>
         </div>
         <div className="form-row">
           <div className="form-group" style={{ display: "flex", alignItems: "flex-end" }}>

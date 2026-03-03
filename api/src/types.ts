@@ -17,6 +17,8 @@ export type NewsItem = {
   imageUrl?: string;
 };
 
+export type WebSearchProvider = 'tavily' | 'serp';
+
 export type ConfigSet = {
   id: number;
   name: string;
@@ -25,6 +27,10 @@ export type ConfigSet = {
   prompt: string;
   recipients_json: string;
   use_web_search: number;
+  web_search_query: string | null;
+  web_search_provider: WebSearchProvider;
+  serp_engine: string | null;
+  web_search_max_results: number;
 };
 
 export type LlmProvider = 'gemini' | 'deepseek' | 'openai' | 'anthropic';
@@ -39,6 +45,7 @@ export type GlobalSettings = {
   source_items_limit: number;
   source_lookback_days: number | null;
   tavily_api_key: string | null;
+  serp_api_key: string | null;
 };
 
 export type Source = {

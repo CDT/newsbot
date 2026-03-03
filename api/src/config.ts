@@ -54,6 +54,7 @@ export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
   source_items_limit: 20,
   source_lookback_days: null,
   tavily_api_key: null,
+  serp_api_key: null,
 };
 
 // ── Env-aware helpers ────────────────────────────────────────────────
