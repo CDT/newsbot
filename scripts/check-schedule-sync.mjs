@@ -30,7 +30,7 @@ function parseAllowedSchedules(content) {
     cronValues.push(match[1]);
   }
   if (cronValues.length === 0) {
-    throw new Error('No cron values found in api/src/constants/schedules.ts');
+    throw new Error('No cron values found in api/src/config.ts');
   }
   return cronValues;
 }
@@ -41,7 +41,7 @@ function formatList(values) {
 
 const root = resolve('.');
 const wranglerToml = readFileSync(resolve(root, 'wrangler.toml'), 'utf8');
-const scheduleConstants = readFileSync(resolve(root, 'api/src/constants/schedules.ts'), 'utf8');
+const scheduleConstants = readFileSync(resolve(root, 'api/src/config.ts'), 'utf8');
 
 const wranglerCrons = parseWranglerCronTriggers(wranglerToml);
 const allowedCrons = parseAllowedSchedules(scheduleConstants);

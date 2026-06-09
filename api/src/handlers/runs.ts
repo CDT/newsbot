@@ -382,6 +382,10 @@ export async function runConfigSet(env: Env, config: ConfigSet): Promise<RunConf
       await updateStatus(`Added ${addedCount} item(s) from web search (${finalItems.length} total)`);
     }
 
+    if (sources.length > 0 && failedSourceNotes.length === sources.length && finalItems.length === 0) {
+      throw new Error(`All ${sources.length} configured source(s) failed and no news items were available.`);
+    }
+
     await updateStatus('Summarizing content');
     const summary = await summarize(finalItems, config.prompt, settings.llm_provider, settings.llm_api_key, settings.llm_model);
     await updateStatus('Generating html');
