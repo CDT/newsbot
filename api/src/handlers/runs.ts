@@ -27,6 +27,10 @@ type RunFailureNotification = {
   errorStack: string | null;
 };
 
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : 'Unknown error';
+}
+
 async function ensureRunLogSchema(env: Env): Promise<void> {
   if (!runLogSchemaReadyPromise) {
     runLogSchemaReadyPromise = (async () => {
@@ -295,6 +299,8 @@ export async function runConfigSet(env: Env, config: ConfigSet): Promise<RunConf
     const sourceItemsLimit = settings.source_items_limit;
 
     const items: NewsItem[] = [];
+    const failedSourceLabels: string[] = [];
+    const failedSourceNotes: string[] = [];
     let totalSourceItemsReported = 0;
     let totalSourceItemsProcessed = 0;
     for (const [sourceIndex, source] of sources.entries()) {
@@ -304,16 +310,25 @@ export async function runConfigSet(env: Env, config: ConfigSet): Promise<RunConf
       );
 
       let sourceFetchResult: Awaited<ReturnType<typeof fetchRssItems>>;
-      if (source.type === 'rss') {
-        sourceFetchResult = await fetchRssItems(source.url, sourceItemsLimit, sourceFetchTimeoutMs);
-      } else if (source.type === 'api') {
-        sourceFetchResult = await fetchApiItems(
-          source.url,
-          source.items_path ?? undefined,
-          sourceItemsLimit,
-          sourceFetchTimeoutMs
-        );
-      } else {
+      try {
+        if (source.type === 'rss') {
+          sourceFetchResult = await fetchRssItems(source.url, sourceItemsLimit, sourceFetchTimeoutMs);
+        } else if (source.type === 'api') {
+          sourceFetchResult = await fetchApiItems(
+            source.url,
+            source.items_path ?? undefined,
+            sourceItemsLimit,
+            sourceFetchTimeoutMs
+          );
+        } else {
+          continue;
+        }
+      } catch (error) {
+        const message = getErrorMessage(error);
+        failedSourceLabels.push(sourceLabel);
+        failedSourceNotes.push(`${sourceLabel}: ${message}`);
+        console.warn(`[runConfigSet] Skipping failed source "${sourceLabel}" for config set ${config.id}:`, error);
+        await updateStatus(`Skipped source [${sourceLabel}]: ${message}`);
         continue;
       }
 
@@ -323,6 +338,12 @@ export async function runConfigSet(env: Env, config: ConfigSet): Promise<RunConf
 
       await updateStatus(
         `${items.length} items fetched so far (processed ${totalSourceItemsProcessed}/${totalSourceItemsReported} source items total, limit ${sourceItemsLimit} per source)`
+      );
+    }
+
+    if (failedSourceNotes.length > 0) {
+      await updateStatus(
+        `Skipped ${failedSourceNotes.length}/${sources.length} source(s): ${failedSourceLabels.join(', ')}`
       );
     }
 
@@ -364,8 +385,8 @@ export async function runConfigSet(env: Env, config: ConfigSet): Promise<RunConf
     await updateStatus('Summarizing content');
     const summary = await summarize(finalItems, config.prompt, settings.llm_provider, settings.llm_api_key, settings.llm_model);
     await updateStatus('Generating html');
-    const html = buildEmailHtml(config.name, summary, finalItems);
-    const text = buildEmailText(config.name, summary, finalItems);
+    const html = buildEmailHtml(config.name, summary, finalItems, { runNotes: failedSourceNotes });
+    const text = buildEmailText(config.name, summary, finalItems, { runNotes: failedSourceNotes });
     await updateStatus(`Sending email to ${recipients.length} recipient(s)`);
 
     const emailId = await sendResendEmail(
@@ -385,7 +406,7 @@ export async function runConfigSet(env: Env, config: ConfigSet): Promise<RunConf
     return { runId, html };
   } catch (error) {
     console.error(`[runConfigSet] Config set ${config.id} ("${config.name}") failed:`, error);
-    const message = error instanceof Error ? error.message : 'Unknown error';
+    const message = getErrorMessage(error);
     const stack = error instanceof Error ? error.stack ?? null : null;
     const failedAt = new Date().toISOString();
 

@@ -22,6 +22,7 @@ npm-debug.log*
 
 # IDE
 .idea/
+.claude/
 *.swp
 *.swo
 

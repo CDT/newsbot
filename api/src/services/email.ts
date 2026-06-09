@@ -19,6 +19,10 @@ type SummaryBlock =
   | { type: 'ul'; items: string[] }
   | { type: 'ol'; items: string[] };
 
+type EmailOptions = {
+  runNotes?: string[];
+};
+
 function normalizeMultilineText(value: string): string {
   return value.replaceAll('\r\n', '\n').trim();
 }
@@ -201,12 +205,13 @@ function renderSummaryHtml(summary: string): string {
     .join('');
 }
 
-export function buildEmailHtml(title: string, summary: string, items: NewsItem[]): string {
+export function buildEmailHtml(title: string, summary: string, items: NewsItem[], options: EmailOptions = {}): string {
   const issueDate = ISSUE_DATE_FORMATTER.format(new Date());
   const escapedTitle = escapeHtml(oneLineText(title) || 'News Digest');
   const preheader = escapeHtml(
     `${oneLineText(title) || 'News Digest'}: ${items.length} article${items.length === 1 ? '' : 's'} ready`
   );
+  const runNotes = (options.runNotes ?? []).map(oneLineText).filter(Boolean);
 
   const summaryHtml = renderSummaryHtml(summary);
 
@@ -258,6 +263,12 @@ export function buildEmailHtml(title: string, summary: string, items: NewsItem[]
         })
         .join('')
     : '';
+  const runNotesHtml = runNotes.length
+    ? `<p style="margin:0 0 8px;color:#64748b;font-size:12px;line-height:1.6;font-weight:700;">Run notes</p>
+                <ul style="margin:0 0 12px 18px;padding:0;color:#64748b;font-size:12px;line-height:1.6;">
+                  ${runNotes.map((note) => `<li style="margin:0 0 4px;">${escapeHtml(note)}</li>`).join('')}
+                </ul>`
+    : '';
 
   return `<!doctype html>
 <html lang="en">
@@ -295,6 +306,7 @@ export function buildEmailHtml(title: string, summary: string, items: NewsItem[]
             ${articlesHtml}
             <tr>
               <td style="padding:10px 28px 24px;">
+                ${runNotesHtml}
                 <p style="margin:0;color:#64748b;font-size:12px;line-height:1.6;">
                   You are receiving this email because you are on the recipient list for this NewsBot configuration.
                 </p>
@@ -308,9 +320,10 @@ export function buildEmailHtml(title: string, summary: string, items: NewsItem[]
 </html>`;
 }
 
-export function buildEmailText(title: string, summary: string, items: NewsItem[]): string {
+export function buildEmailText(title: string, summary: string, items: NewsItem[], options: EmailOptions = {}): string {
   const issueDate = ISSUE_DATE_FORMATTER.format(new Date());
   const summaryText = normalizeMultilineText(summary);
+  const runNotes = (options.runNotes ?? []).map(oneLineText).filter(Boolean);
   const lines: string[] = [
     `News Digest: ${oneLineText(title) || 'News Digest'}`,
     `Date: ${issueDate}`,
@@ -321,6 +334,9 @@ export function buildEmailText(title: string, summary: string, items: NewsItem[]
   ];
 
   if (!items.length) {
+    if (runNotes.length) {
+      lines.push('Run notes', ...runNotes.map((note) => `- ${note}`), '');
+    }
     return lines.join('\n').trimEnd();
   }
 
@@ -334,6 +350,10 @@ export function buildEmailText(title: string, summary: string, items: NewsItem[]
     if (item.summary) lines.push(`Summary: ${truncateText(oneLineText(item.summary), 300)}`);
     lines.push('');
   });
+
+  if (runNotes.length) {
+    lines.push('Run notes', ...runNotes.map((note) => `- ${note}`), '');
+  }
 
   return lines.join('\n').trimEnd();
 }
