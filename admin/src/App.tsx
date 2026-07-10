@@ -453,6 +453,7 @@ function App() {
     } catch (err) {
       await loadRuns(1).catch(() => undefined);
       setError(err instanceof Error ? err.message : "Run failed");
+      throw err;
     } finally {
       setRunProgressByConfigId((prev) => {
         if (!prev[id]) {
