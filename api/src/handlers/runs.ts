@@ -2,7 +2,7 @@ import type { Env, ConfigSet, GlobalSettings, NewsItem, Source } from '../types'
 import { getGlobalSettings } from '../services/global-settings';
 import { safeParseJsonArray } from '../utils/parsing';
 import { jsonResponse, escapeHtml } from '../utils/response';
-import { fetchRssItems, fetchApiItems, dedupeItems, filterByLookback } from '../services/sources';
+import { fetchRssItems, fetchApiItems, fetchWebPageItems, dedupeItems, filterByLookback } from '../services/sources';
 import { summarize } from '../services/llm';
 import { searchTavily, searchSerp } from '../services/web-search';
 import { buildEmailHtml, buildEmailText, sendResendEmail } from '../services/email';
@@ -42,7 +42,7 @@ async function ensureRunLogSchema(env: Env): Promise<void> {
       if (!existingColumns.has('status_history_json')) {
         try {
           await env.DB.prepare(
-            `ALTER TABLE run_log ADD COLUMN status_history_json TEXT NOT NULL DEFAULT '${RUN_STATUS_HISTORY_DEFAULT}'`
+            `ALTER TABLE run_log ADD COLUMN status_history_json TEXT NOT NULL DEFAULT '${RUN_STATUS_HISTORY_DEFAULT}'`,
           ).run();
         } catch (error) {
           if (!(error instanceof Error) || !/duplicate column|already exists/i.test(error.message)) {
@@ -52,7 +52,7 @@ async function ensureRunLogSchema(env: Env): Promise<void> {
       }
 
       await env.DB.prepare(
-        "UPDATE run_log SET status_history_json = json_array(status) WHERE status_history_json IS NULL OR trim(status_history_json) = ''"
+        "UPDATE run_log SET status_history_json = json_array(status) WHERE status_history_json IS NULL OR trim(status_history_json) = ''",
       ).run();
     })().catch((error) => {
       runLogSchemaReadyPromise = null;
@@ -65,7 +65,7 @@ async function ensureRunLogSchema(env: Env): Promise<void> {
 
 async function appendRunStatus(env: Env, runId: number, status: string): Promise<void> {
   await env.DB.prepare(
-    "UPDATE run_log SET status = ?, status_history_json = json_insert(CASE WHEN json_valid(status_history_json) THEN status_history_json ELSE '[]' END, '$[#]', ?) WHERE id = ?"
+    "UPDATE run_log SET status = ?, status_history_json = json_insert(CASE WHEN json_valid(status_history_json) THEN status_history_json ELSE '[]' END, '$[#]', ?) WHERE id = ?",
   )
     .bind(status, status, runId)
     .run();
@@ -87,7 +87,7 @@ async function markTimedOutRuns(env: Env): Promise<void> {
            ELSE error_message
          END
      WHERE lower(trim(status)) NOT IN (${finalStatusesInClause})
-       AND datetime(started_at) <= datetime('now', ?)`
+       AND datetime(started_at) <= datetime('now', ?)`,
   )
     .bind(timeoutMessage, `-${timeoutMinutes} minutes`)
     .run();
@@ -96,7 +96,7 @@ async function markTimedOutRuns(env: Env): Promise<void> {
 async function getConfigSources(db: D1Database, configSetId: number): Promise<Source[]> {
   const rows = await db
     .prepare(
-      'SELECT s.* FROM source s JOIN config_set_source css ON s.id = css.source_id WHERE css.config_set_id = ? AND s.enabled = 1'
+      'SELECT s.* FROM source s JOIN config_set_source css ON s.id = css.source_id WHERE css.config_set_id = ? AND s.enabled = 1',
     )
     .bind(configSetId)
     .all<Source>();
@@ -172,7 +172,7 @@ function buildRunFailureEmailHtml(notification: RunFailureNotification): string 
 
 async function sendRunFailureNotification(
   settings: GlobalSettings | null,
-  notification: RunFailureNotification
+  notification: RunFailureNotification,
 ): Promise<void> {
   const adminEmail = settings?.admin_email?.trim();
   const resendApiKey = settings?.resend_api_key?.trim();
@@ -193,7 +193,7 @@ export async function handleRunConfigSet(env: Env, id: number): Promise<Response
   await markTimedOutRuns(env);
 
   const config = await env.DB.prepare(
-    'SELECT id, name, enabled, schedule_cron, prompt, recipients_json, web_search_query, web_search_provider, serp_engine, web_search_max_results FROM config_set WHERE id = ?'
+    'SELECT id, name, enabled, schedule_cron, prompt, recipients_json, web_search_query, web_search_provider, serp_engine, web_search_max_results FROM config_set WHERE id = ?',
   )
     .bind(id)
     .first<ConfigSet>();
@@ -223,12 +223,17 @@ export async function handleListRuns(env: Env, url: URL): Promise<Response> {
   const total = countResult?.total ?? 0;
 
   const rows = await env.DB.prepare(
-    'SELECT run_log.id, run_log.config_set_id, config_set.name as config_name, run_log.started_at, run_log.status, run_log.status_history_json, run_log.item_count, run_log.error_message, run_log.email_id FROM run_log LEFT JOIN config_set ON run_log.config_set_id = config_set.id ORDER BY run_log.id DESC LIMIT ? OFFSET ?'
+    'SELECT run_log.id, run_log.config_set_id, config_set.name as config_name, run_log.started_at, run_log.status, run_log.status_history_json, run_log.item_count, run_log.error_message, run_log.email_id FROM run_log LEFT JOIN config_set ON run_log.config_set_id = config_set.id ORDER BY run_log.id DESC LIMIT ? OFFSET ?',
   )
     .bind(limit, offset)
     .all();
 
-  return jsonResponse({ data: rows.results ?? [], total, page, pageSize: limit });
+  return jsonResponse({
+    data: rows.results ?? [],
+    total,
+    page,
+    pageSize: limit,
+  });
 }
 
 export async function handleDeleteRun(env: Env, id: number): Promise<Response> {
@@ -262,7 +267,7 @@ export async function getEnabledConfigSets(env: Env, cron: string): Promise<Conf
   await markTimedOutRuns(env);
 
   const rows = await env.DB.prepare(
-    "SELECT id, name, enabled, schedule_cron, prompt, recipients_json, web_search_query, web_search_provider, serp_engine, web_search_max_results FROM config_set WHERE enabled = 1 AND (',' || schedule_cron || ',') LIKE ('%,' || ? || ',%')"
+    "SELECT id, name, enabled, schedule_cron, prompt, recipients_json, web_search_query, web_search_provider, serp_engine, web_search_max_results FROM config_set WHERE enabled = 1 AND (',' || schedule_cron || ',') LIKE ('%,' || ? || ',%')",
   )
     .bind(cron)
     .all<ConfigSet>();
@@ -274,7 +279,7 @@ export async function runConfigSet(env: Env, config: ConfigSet): Promise<RunConf
 
   const startedAt = new Date().toISOString();
   const runInsert = await env.DB.prepare(
-    'INSERT INTO run_log (config_set_id, started_at, status, status_history_json, item_count) VALUES (?, ?, ?, json_array(?), ?)'
+    'INSERT INTO run_log (config_set_id, started_at, status, status_history_json, item_count) VALUES (?, ?, ?, json_array(?), ?)',
   )
     .bind(config.id, startedAt, 'Starting run', 'Starting run', 0)
     .run();
@@ -306,7 +311,7 @@ export async function runConfigSet(env: Env, config: ConfigSet): Promise<RunConf
     for (const [sourceIndex, source] of sources.entries()) {
       const sourceLabel = source.name?.trim() || source.url;
       await updateStatus(
-        `Fetching from source [${sourceLabel}] (${sourceIndex + 1}/${sources.length}, first ${sourceItemsLimit} items only)`
+        `Fetching from source [${sourceLabel}] (${sourceIndex + 1}/${sources.length}, first ${sourceItemsLimit} items only)`,
       );
 
       let sourceFetchResult: Awaited<ReturnType<typeof fetchRssItems>>;
@@ -318,8 +323,10 @@ export async function runConfigSet(env: Env, config: ConfigSet): Promise<RunConf
             source.url,
             source.items_path ?? undefined,
             sourceItemsLimit,
-            sourceFetchTimeoutMs
+            sourceFetchTimeoutMs,
           );
+        } else if (source.type === 'web_page') {
+          sourceFetchResult = await fetchWebPageItems(source.url, sourceItemsLimit, sourceFetchTimeoutMs);
         } else {
           continue;
         }
@@ -337,25 +344,25 @@ export async function runConfigSet(env: Env, config: ConfigSet): Promise<RunConf
       totalSourceItemsProcessed += sourceFetchResult.processedItemCount;
 
       await updateStatus(
-        `${items.length} items fetched so far (processed ${totalSourceItemsProcessed}/${totalSourceItemsReported} source items total, limit ${sourceItemsLimit} per source)`
+        `${items.length} items fetched so far (processed ${totalSourceItemsProcessed}/${totalSourceItemsReported} source items total, limit ${sourceItemsLimit} per source)`,
       );
     }
 
     if (failedSourceNotes.length > 0) {
       await updateStatus(
-        `Skipped ${failedSourceNotes.length}/${sources.length} source(s): ${failedSourceLabels.join(', ')}`
+        `Skipped ${failedSourceNotes.length}/${sources.length} source(s): ${failedSourceLabels.join(', ')}`,
       );
     }
 
     await updateStatus(
-      `Deduplicating fetched items (${items.length} fetched from ${totalSourceItemsProcessed}/${totalSourceItemsReported} source items, limit ${sourceItemsLimit} per source)`
+      `Deduplicating fetched items (${items.length} fetched from ${totalSourceItemsProcessed}/${totalSourceItemsReported} source items, limit ${sourceItemsLimit} per source)`,
     );
     const deduped = dedupeItems(items);
     const lookbackDays = settings.source_lookback_days;
     let finalItems = filterByLookback(deduped, lookbackDays);
     const lookbackLabel = lookbackDays ? `, lookback ${lookbackDays}d` : '';
     await updateStatus(
-      `${finalItems.length} items after dedup/filter (from ${totalSourceItemsProcessed}/${totalSourceItemsReported} source items, limit ${sourceItemsLimit} per source${lookbackLabel})`
+      `${finalItems.length} items after dedup/filter (from ${totalSourceItemsProcessed}/${totalSourceItemsReported} source items, limit ${sourceItemsLimit} per source${lookbackLabel})`,
     );
 
     const searchQueries = [
@@ -363,7 +370,7 @@ export async function runConfigSet(env: Env, config: ConfigSet): Promise<RunConf
         (config.web_search_query ?? '')
           .split(/\r?\n/)
           .map((query) => query.trim())
-          .filter(Boolean)
+          .filter(Boolean),
       ),
     ];
     const searchProvider = config.web_search_provider ?? 'tavily';
@@ -378,13 +385,11 @@ export async function runConfigSet(env: Env, config: ConfigSet): Promise<RunConf
         if (searchProvider === 'serp' && serpApiKey) {
           const engine = config.serp_engine?.trim() || 'google';
           await updateStatus(
-            `Searching web ${index + 1}/${searchQueries.length} via SerpApi (${engine}): "${searchQuery}"`
+            `Searching web ${index + 1}/${searchQueries.length} via SerpApi (${engine}): "${searchQuery}"`,
           );
           webItems.push(...(await searchSerp(serpApiKey, searchQuery, engine, maxResults)));
         } else {
-          await updateStatus(
-            `Searching web ${index + 1}/${searchQueries.length} via Tavily: "${searchQuery}"`
-          );
+          await updateStatus(`Searching web ${index + 1}/${searchQueries.length} via Tavily: "${searchQuery}"`);
           webItems.push(...(await searchTavily(tavilyApiKey!, searchQuery, maxResults)));
         }
       }
@@ -393,7 +398,7 @@ export async function runConfigSet(env: Env, config: ConfigSet): Promise<RunConf
       finalItems = dedupeItems([...finalItems, ...webItems]);
       const addedCount = finalItems.length - beforeCount;
       await updateStatus(
-        `Added ${addedCount} item(s) from ${searchQueries.length} web search quer${searchQueries.length === 1 ? 'y' : 'ies'} (${finalItems.length} total)`
+        `Added ${addedCount} item(s) from ${searchQueries.length} web search quer${searchQueries.length === 1 ? 'y' : 'ies'} (${finalItems.length} total)`,
       );
     }
 
@@ -402,10 +407,20 @@ export async function runConfigSet(env: Env, config: ConfigSet): Promise<RunConf
     }
 
     await updateStatus('Summarizing content');
-    const summary = await summarize(finalItems, config.prompt, settings.llm_provider, settings.llm_api_key, settings.llm_model);
+    const summary = await summarize(
+      finalItems,
+      config.prompt,
+      settings.llm_provider,
+      settings.llm_api_key,
+      settings.llm_model,
+    );
     await updateStatus('Generating html');
-    const html = buildEmailHtml(config.name, summary, finalItems, { runNotes: failedSourceNotes });
-    const text = buildEmailText(config.name, summary, finalItems, { runNotes: failedSourceNotes });
+    const html = buildEmailHtml(config.name, summary, finalItems, {
+      runNotes: failedSourceNotes,
+    });
+    const text = buildEmailText(config.name, summary, finalItems, {
+      runNotes: failedSourceNotes,
+    });
     await updateStatus(`Sending email to ${recipients.length} recipient(s)`);
 
     const emailId = await sendResendEmail(
@@ -414,11 +429,11 @@ export async function runConfigSet(env: Env, config: ConfigSet): Promise<RunConf
       recipients,
       `News Digest: ${config.name}`,
       html,
-      text
+      text,
     );
 
     await env.DB.prepare(
-      "UPDATE run_log SET status = ?, status_history_json = json_insert(CASE WHEN json_valid(status_history_json) THEN status_history_json ELSE '[]' END, '$[#]', ?), item_count = ?, email_id = ? WHERE id = ?"
+      "UPDATE run_log SET status = ?, status_history_json = json_insert(CASE WHEN json_valid(status_history_json) THEN status_history_json ELSE '[]' END, '$[#]', ?), item_count = ?, email_id = ? WHERE id = ?",
     )
       .bind('sent', 'sent', finalItems.length, emailId, runId)
       .run();
@@ -426,11 +441,11 @@ export async function runConfigSet(env: Env, config: ConfigSet): Promise<RunConf
   } catch (error) {
     console.error(`[runConfigSet] Config set ${config.id} ("${config.name}") failed:`, error);
     const message = getErrorMessage(error);
-    const stack = error instanceof Error ? error.stack ?? null : null;
+    const stack = error instanceof Error ? (error.stack ?? null) : null;
     const failedAt = new Date().toISOString();
 
     await env.DB.prepare(
-      "UPDATE run_log SET status = ?, status_history_json = json_insert(CASE WHEN json_valid(status_history_json) THEN status_history_json ELSE '[]' END, '$[#]', ?), error_message = ? WHERE id = ?"
+      "UPDATE run_log SET status = ?, status_history_json = json_insert(CASE WHEN json_valid(status_history_json) THEN status_history_json ELSE '[]' END, '$[#]', ?), error_message = ? WHERE id = ?",
     )
       .bind('error', 'error', message, runId)
       .run();

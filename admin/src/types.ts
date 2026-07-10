@@ -1,4 +1,4 @@
-export type LlmProvider = 'gemini' | 'deepseek' | 'openai' | 'anthropic';
+export type LlmProvider = "gemini" | "deepseek" | "openai" | "anthropic";
 
 export type GlobalSettings = {
   resend_api_key: string | null;
@@ -13,7 +13,7 @@ export type GlobalSettings = {
   serp_api_key: string | null;
 };
 
-export type WebSearchProvider = 'tavily' | 'serp';
+export type WebSearchProvider = "tavily" | "serp";
 
 export type ConfigSet = {
   id: number;
@@ -62,7 +62,7 @@ export type PaginatedRuns = {
 export type Source = {
   id: number;
   name: string;
-  type: 'rss' | 'api';
+  type: "rss" | "api" | "web_page";
   url: string;
   items_path: string | null;
   enabled: number;

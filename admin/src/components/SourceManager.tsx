@@ -104,12 +104,10 @@ export function SourceManager({
           const processedCount = result.processed_item_count ?? result.item_count ?? 0;
           const limitText = result.source_items_limit ?? processedCount;
           setNotice(
-            `Test successful: ${result.item_count} items fetched (processed ${processedCount}/${result.total_item_count} source items, limit ${limitText})`
+            `Test successful: ${result.item_count} items fetched (processed ${processedCount}/${result.total_item_count} source items, limit ${limitText})`,
           );
         } else {
-          const limitHint = result.source_items_limit
-            ? ` (from first ${result.source_items_limit} source items)`
-            : "";
+          const limitHint = result.source_items_limit ? ` (from first ${result.source_items_limit} source items)` : "";
           setNotice(`Test successful: ${result.item_count} items fetched${limitHint}`);
         }
       } else {
@@ -176,11 +174,11 @@ export function SourceManager({
 
       {sources.length === 0 && !editMode ? (
         <div className="empty-state">
-          <div className="empty-state-icon"><Icons.Rss /></div>
+          <div className="empty-state-icon">
+            <Icons.Rss />
+          </div>
           <div className="empty-state-title">No sources yet</div>
-          <p className="empty-state-description">
-            Add RSS feeds or API endpoints to aggregate news.
-          </p>
+          <p className="empty-state-description">Add RSS feeds or API endpoints to aggregate news.</p>
         </div>
       ) : (
         <div className="grid grid-2">
@@ -240,10 +238,16 @@ function SourceForm({
           <label>Type</label>
           <select
             value={sourceForm.type}
-            onChange={(e) => onFormChange({ ...sourceForm, type: e.target.value as "rss" | "api" })}
+            onChange={(e) =>
+              onFormChange({
+                ...sourceForm,
+                type: e.target.value as "rss" | "api" | "web_page",
+              })
+            }
           >
             <option value="rss">Web Feed (RSS/Atom)</option>
             <option value="api">JSON API</option>
+            <option value="web_page">Web Page (HTML list)</option>
           </select>
         </div>
       </div>
@@ -252,7 +256,9 @@ function SourceForm({
         <label>URL</label>
         <input
           type="url"
-          placeholder="https://example.com/feed.xml"
+          placeholder={
+            sourceForm.type === "web_page" ? "https://example.com/news/index.html" : "https://example.com/feed.xml"
+          }
           value={sourceForm.url}
           onChange={(e) => onFormChange({ ...sourceForm, url: e.target.value })}
           required
@@ -269,7 +275,12 @@ function SourceForm({
             type="text"
             placeholder="data.items"
             value={sourceForm.items_path ?? ""}
-            onChange={(e) => onFormChange({ ...sourceForm, items_path: e.target.value || null })}
+            onChange={(e) =>
+              onFormChange({
+                ...sourceForm,
+                items_path: e.target.value || null,
+              })
+            }
           />
         </div>
       )}
@@ -278,7 +289,12 @@ function SourceForm({
         <div className="toggle-wrapper">
           <div
             className={`toggle ${sourceForm.enabled ? "active" : ""}`}
-            onClick={() => onFormChange({ ...sourceForm, enabled: sourceForm.enabled ? 0 : 1 })}
+            onClick={() =>
+              onFormChange({
+                ...sourceForm,
+                enabled: sourceForm.enabled ? 0 : 1,
+              })
+            }
           />
           <span className="toggle-label">{sourceForm.enabled ? "Enabled" : "Disabled"}</span>
         </div>
@@ -290,7 +306,15 @@ function SourceForm({
             onClick={onTest}
             disabled={!sourceForm.url || testingId !== null}
           >
-            {testingId === null ? <><Icons.Play /> Test</> : <><Icons.Loader /> Testing...</>}
+            {testingId === null ? (
+              <>
+                <Icons.Play /> Test
+              </>
+            ) : (
+              <>
+                <Icons.Loader /> Testing...
+              </>
+            )}
           </button>
           <button type="button" className="btn btn-secondary" onClick={onCancel}>
             Cancel
@@ -333,9 +357,7 @@ function SourceCard({ source, onEdit, onDelete, onTest, testing }: SourceCardPro
     <div className="source-card">
       <div className="source-card-header">
         <div className="source-card-title-row">
-          <span className="source-card-icon">
-            {source.type === "rss" ? <Icons.Rss /> : <Icons.Globe />}
-          </span>
+          <span className="source-card-icon">{source.type === "rss" ? <Icons.Rss /> : <Icons.Globe />}</span>
           <div className="source-card-title">{source.name}</div>
         </div>
         <div className="source-card-badges">

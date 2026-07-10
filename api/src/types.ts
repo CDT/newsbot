@@ -50,7 +50,7 @@ export type GlobalSettings = {
 export type Source = {
   id: number;
   name: string;
-  type: 'rss' | 'api';
+  type: 'rss' | 'api' | 'web_page';
   url: string;
   items_path: string | null;
   enabled: number;

@@ -50,22 +50,21 @@ async function fetchWithTimeout(url: string, timeoutMs: number): Promise<Respons
 export async function fetchRssItems(
   url: string,
   itemsLimit: number,
-  timeoutMs = DEFAULT_SOURCE_FETCH_TIMEOUT_MS
+  timeoutMs = DEFAULT_SOURCE_FETCH_TIMEOUT_MS,
 ): Promise<SourceFetchResult> {
   const response = await fetchWithTimeout(url, timeoutMs);
   if (!response.ok) {
     const body = await response.text().catch(() => '');
     console.error(`[fetchRssItems] RSS fetch failed: ${url} (HTTP ${response.status}):`, body.slice(0, 500));
     throw new Error(
-      `RSS fetch failed: ${url} (HTTP ${response.status} ${response.statusText})${body ? ' — ' + body.slice(0, 200) : ''}`
+      `RSS fetch failed: ${url} (HTTP ${response.status} ${response.statusText})${body ? ' — ' + body.slice(0, 200) : ''}`,
     );
   }
   const text = await response.text();
   const parsed = xmlParser.parse(text);
 
   // Try RSS format first (looks for rss > channel > item)
-  const rssItems: unknown[] | undefined =
-    parsed?.rss?.channel?.item ?? parsed?.rdf?.item;
+  const rssItems: unknown[] | undefined = parsed?.rss?.channel?.item ?? parsed?.rdf?.item;
   if (rssItems && rssItems.length > 0) {
     const processedItemCount = Math.min(rssItems.length, itemsLimit);
     return {
@@ -161,7 +160,10 @@ function parseAtomEntries(entries: unknown[]): NewsItem[] {
 }
 
 /** Extract the first image URL and strip all HTML tags from a string. */
-function extractImageAndStripHtml(html: string): { text: string; imageUrl?: string } {
+function extractImageAndStripHtml(html: string): {
+  text: string;
+  imageUrl?: string;
+} {
   // Extract src from the first <img> tag
   const imgMatch = html.match(/<img[^>]+src\s*=\s*["']([^"']+)["'][^>]*>/i);
   let imageUrl: string | undefined;
@@ -180,7 +182,7 @@ function extractImageAndStripHtml(html: string): { text: string; imageUrl?: stri
     .replace(/<[^>]*>/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
-  return { text: text || undefined as unknown as string, imageUrl };
+  return { text: text || (undefined as unknown as string), imageUrl };
 }
 
 /** Coerce a value to a trimmed string, or null if empty/missing. */
@@ -203,20 +205,24 @@ export async function fetchApiItems(
   url: string,
   itemsPath: string | undefined,
   itemsLimit: number,
-  timeoutMs = DEFAULT_SOURCE_FETCH_TIMEOUT_MS
+  timeoutMs = DEFAULT_SOURCE_FETCH_TIMEOUT_MS,
 ): Promise<SourceFetchResult> {
   const response = await fetchWithTimeout(url, timeoutMs);
   if (!response.ok) {
     const body = await response.text().catch(() => '');
     console.error(`[fetchApiItems] API fetch failed: ${url} (HTTP ${response.status}):`, body.slice(0, 500));
     throw new Error(
-      `API fetch failed: ${url} (HTTP ${response.status} ${response.statusText})${body ? ' — ' + body.slice(0, 200) : ''}`
+      `API fetch failed: ${url} (HTTP ${response.status} ${response.statusText})${body ? ' — ' + body.slice(0, 200) : ''}`,
     );
   }
   const data = await response.json();
   const items = itemsPath ? getPathValue(data, itemsPath) : data;
   if (!Array.isArray(items)) {
-    console.error(`[fetchApiItems] Response is not an array for ${url}. Got:`, typeof items, JSON.stringify(items).slice(0, 300));
+    console.error(
+      `[fetchApiItems] Response is not an array for ${url}. Got:`,
+      typeof items,
+      JSON.stringify(items).slice(0, 300),
+    );
     throw new Error(`API response did not return an array for ${url}`);
   }
   const processedItemCount = Math.min(items.length, itemsLimit);
@@ -238,6 +244,80 @@ export async function fetchApiItems(
     totalItemCount: items.length,
     processedItemCount,
   };
+}
+
+/** Fetch dated article links from a conventional HTML listing page. */
+export async function fetchWebPageItems(
+  url: string,
+  itemsLimit: number,
+  timeoutMs = DEFAULT_SOURCE_FETCH_TIMEOUT_MS,
+): Promise<SourceFetchResult> {
+  const response = await fetchWithTimeout(url, timeoutMs);
+  if (!response.ok) {
+    throw new Error(`Web page fetch failed: ${url} (HTTP ${response.status} ${response.statusText})`);
+  }
+
+  const items = parseWebPageItems(await response.text(), url);
+  return {
+    items: items.slice(0, itemsLimit),
+    totalItemCount: items.length,
+    processedItemCount: Math.min(items.length, itemsLimit),
+  };
+}
+
+function parseWebPageItems(html: string, pageUrl: string): NewsItem[] {
+  const items: NewsItem[] = [];
+  const seen = new Set<string>();
+  const listItemPattern = /<li\b[^>]*>([\s\S]*?)<\/li>/gi;
+  let listItem: RegExpExecArray | null;
+
+  while ((listItem = listItemPattern.exec(html))) {
+    const row = listItem[1];
+    const dateMatch = row.match(/\b(20\d{2}[-/.]\d{1,2}[-/.]\d{1,2})\b/);
+    // Requiring a date excludes headers, navigation, and unrelated page chrome.
+    if (!dateMatch) continue;
+
+    const anchorMatch = row.match(/<a\b[^>]*\bhref\s*=\s*(["'])(.*?)\1[^>]*>([\s\S]*?)<\/a>/i);
+    if (!anchorMatch) continue;
+
+    const title = htmlToText(anchorMatch[3]);
+    const href = decodeHtmlEntities(anchorMatch[2]).trim();
+    if (!title || title.length < 3 || !href || /^(#|javascript:|mailto:)/i.test(href)) continue;
+
+    let articleUrl: string;
+    try {
+      articleUrl = new URL(href, pageUrl).toString();
+    } catch {
+      continue;
+    }
+    if (!/^https?:/i.test(articleUrl) || seen.has(articleUrl)) continue;
+
+    seen.add(articleUrl);
+    items.push({
+      title,
+      url: articleUrl,
+      publishedAt: dateMatch[1].replace(/[/.]/g, '-'),
+    });
+  }
+
+  return items;
+}
+
+function htmlToText(value: string): string {
+  return decodeHtmlEntities(value.replace(/<[^>]*>/g, ' '))
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function decodeHtmlEntities(value: string): string {
+  return value
+    .replace(/&amp;/gi, '&')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&#(\d+);/g, (_match, code: string) => String.fromCodePoint(Number(code)))
+    .replace(/&#x([\da-f]+);/gi, (_match, code: string) => String.fromCodePoint(parseInt(code, 16)));
 }
 
 export function filterByLookback(items: NewsItem[], lookbackDays: number | null): NewsItem[] {

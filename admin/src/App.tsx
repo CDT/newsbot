@@ -248,6 +248,35 @@ function App() {
     };
   }, [token, apiFetch, runningConfigIds]);
 
+  useEffect(() => {
+    if (!token || activeTab !== "history") return;
+
+    let cancelled = false;
+    const refreshRuns = async () => {
+      try {
+        const data = (await apiFetch(
+          `/api/runs?page=${runsPage}&limit=${RUNS_PAGE_SIZE}`
+        )) as PaginatedRuns;
+        if (cancelled) return;
+
+        setRuns(data.data);
+        setRunsTotal(data.total);
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Failed to load run history");
+        }
+      }
+    };
+
+    void refreshRuns();
+    const timer = window.setInterval(() => void refreshRuns(), 10_000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [token, activeTab, apiFetch, runsPage]);
+
   async function loadSettings() {
     return withTabLoading("settings", async () => {
       const data = (await apiFetch("/api/global-settings")) as GlobalSettingsType;
@@ -422,6 +451,7 @@ function App() {
       setNotice("Run completed successfully");
       await loadRuns(1);
     } catch (err) {
+      await loadRuns(1).catch(() => undefined);
       setError(err instanceof Error ? err.message : "Run failed");
     } finally {
       setRunProgressByConfigId((prev) => {

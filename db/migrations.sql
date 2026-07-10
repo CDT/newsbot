@@ -60,7 +60,7 @@ CREATE INDEX IF NOT EXISTS idx_run_log_config_set_id ON run_log(config_set_id);
 CREATE TABLE IF NOT EXISTS source (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL,
-  type TEXT NOT NULL CHECK (type IN ('rss', 'api')),
+  type TEXT NOT NULL CHECK (type IN ('rss', 'api', 'web_page')),
   url TEXT NOT NULL,
   items_path TEXT,
   enabled INTEGER NOT NULL DEFAULT 1,

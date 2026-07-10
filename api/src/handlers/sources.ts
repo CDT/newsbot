@@ -1,11 +1,11 @@
 import type { Env, Source, SourceTestResult } from '../types';
 import { jsonResponse } from '../utils/response';
-import { fetchRssItems, fetchApiItems } from '../services/sources';
+import { fetchRssItems, fetchApiItems, fetchWebPageItems } from '../services/sources';
 import { getGlobalSettings, parseSourceItemsLimit } from '../services/global-settings';
 
 export async function handleListSources(env: Env): Promise<Response> {
   const rows = await env.DB.prepare(
-    'SELECT id, name, type, url, items_path, enabled, last_tested_at, last_test_status, last_test_message, created_at FROM source ORDER BY id DESC'
+    'SELECT id, name, type, url, items_path, enabled, last_tested_at, last_test_status, last_test_message, created_at FROM source ORDER BY id DESC',
   ).all<Source>();
   return jsonResponse(rows.results ?? []);
 }
@@ -15,7 +15,7 @@ export async function handleGetSource(env: Env, id: number): Promise<Response> {
     return jsonResponse({ error: 'Invalid id' }, 400);
   }
   const row = await env.DB.prepare(
-    'SELECT id, name, type, url, items_path, enabled, last_tested_at, last_test_status, last_test_message, created_at FROM source WHERE id = ?'
+    'SELECT id, name, type, url, items_path, enabled, last_tested_at, last_test_status, last_test_message, created_at FROM source WHERE id = ?',
   )
     .bind(id)
     .first<Source>();
@@ -27,17 +27,18 @@ export async function handleGetSource(env: Env, id: number): Promise<Response> {
 }
 
 export async function handleCreateSource(request: Request, env: Env): Promise<Response> {
+  await ensureWebPageSourceType(env);
   const body = (await request.json().catch(() => null)) as Partial<Source> | null;
   if (!body?.name || !body?.type || !body?.url) {
     return jsonResponse({ error: 'Missing required fields: name, type, url' }, 400);
   }
 
-  if (body.type !== 'rss' && body.type !== 'api') {
-    return jsonResponse({ error: 'Invalid type. Must be "rss" or "api"' }, 400);
+  if (body.type !== 'rss' && body.type !== 'api' && body.type !== 'web_page') {
+    return jsonResponse({ error: 'Invalid type. Must be "rss", "api", or "web_page"' }, 400);
   }
 
   const result = await env.DB.prepare(
-    'INSERT INTO source (name, type, url, items_path, enabled) VALUES (?, ?, ?, ?, ?)'
+    'INSERT INTO source (name, type, url, items_path, enabled) VALUES (?, ?, ?, ?, ?)',
   )
     .bind(body.name, body.type, body.url, body.items_path ?? null, body.enabled ?? 1)
     .run();
@@ -45,11 +46,8 @@ export async function handleCreateSource(request: Request, env: Env): Promise<Re
   return jsonResponse({ ok: true, id: result.meta.last_row_id });
 }
 
-export async function handleUpdateSource(
-  request: Request,
-  env: Env,
-  id: number
-): Promise<Response> {
+export async function handleUpdateSource(request: Request, env: Env, id: number): Promise<Response> {
+  await ensureWebPageSourceType(env);
   if (!Number.isFinite(id)) {
     return jsonResponse({ error: 'Invalid id' }, 400);
   }
@@ -58,21 +56,12 @@ export async function handleUpdateSource(
     return jsonResponse({ error: 'Invalid payload' }, 400);
   }
 
-  if (body.type && body.type !== 'rss' && body.type !== 'api') {
-    return jsonResponse({ error: 'Invalid type. Must be "rss" or "api"' }, 400);
+  if (body.type && body.type !== 'rss' && body.type !== 'api' && body.type !== 'web_page') {
+    return jsonResponse({ error: 'Invalid type. Must be "rss", "api", or "web_page"' }, 400);
   }
 
-  await env.DB.prepare(
-    'UPDATE source SET name = ?, type = ?, url = ?, items_path = ?, enabled = ? WHERE id = ?'
-  )
-    .bind(
-      body.name ?? '',
-      body.type ?? 'rss',
-      body.url ?? '',
-      body.items_path ?? null,
-      body.enabled ?? 1,
-      id
-    )
+  await env.DB.prepare('UPDATE source SET name = ?, type = ?, url = ?, items_path = ?, enabled = ? WHERE id = ?')
+    .bind(body.name ?? '', body.type ?? 'rss', body.url ?? '', body.items_path ?? null, body.enabled ?? 1, id)
     .run();
 
   return jsonResponse({ ok: true });
@@ -86,11 +75,7 @@ export async function handleDeleteSource(env: Env, id: number): Promise<Response
   return jsonResponse({ ok: true });
 }
 
-export async function handleTestSource(
-  request: Request,
-  env: Env,
-  id?: number
-): Promise<Response> {
+export async function handleTestSource(request: Request, env: Env, id?: number): Promise<Response> {
   let sourceData: Partial<Source>;
 
   if (id !== undefined) {
@@ -98,9 +83,7 @@ export async function handleTestSource(
     if (!Number.isFinite(id)) {
       return jsonResponse({ error: 'Invalid id' }, 400);
     }
-    const row = await env.DB.prepare('SELECT type, url, items_path FROM source WHERE id = ?')
-      .bind(id)
-      .first<Source>();
+    const row = await env.DB.prepare('SELECT type, url, items_path FROM source WHERE id = ?').bind(id).first<Source>();
 
     if (!row) {
       return jsonResponse({ error: 'Source not found' }, 404);
@@ -122,14 +105,14 @@ export async function handleTestSource(
   // Update last test status if testing an existing source
   if (id !== undefined) {
     await env.DB.prepare(
-      'UPDATE source SET last_tested_at = datetime("now"), last_test_status = ?, last_test_message = ? WHERE id = ?'
+      'UPDATE source SET last_tested_at = datetime("now"), last_test_status = ?, last_test_message = ? WHERE id = ?',
     )
       .bind(
         result.success ? 'success' : 'error',
         result.success
           ? `Fetched ${result.item_count} items (processed ${result.processed_item_count ?? result.item_count}/${result.total_item_count ?? result.processed_item_count ?? result.item_count} source items, limit ${sourceItemsLimit})`
-          : result.error ?? 'Unknown error',
-        id
+          : (result.error ?? 'Unknown error'),
+        id,
       )
       .run();
   }
@@ -141,7 +124,7 @@ async function testSourceFetch(
   type: string,
   url: string,
   itemsPath: string | null | undefined,
-  sourceItemsLimit: number
+  sourceItemsLimit: number,
 ): Promise<SourceTestResult> {
   try {
     let fetchResult: Awaited<ReturnType<typeof fetchRssItems>>;
@@ -149,8 +132,14 @@ async function testSourceFetch(
       fetchResult = await fetchRssItems(url, sourceItemsLimit);
     } else if (type === 'api') {
       fetchResult = await fetchApiItems(url, itemsPath ?? undefined, sourceItemsLimit);
+    } else if (type === 'web_page') {
+      fetchResult = await fetchWebPageItems(url, sourceItemsLimit);
     } else {
-      return { success: false, error: `Unknown source type: ${type}`, source_items_limit: sourceItemsLimit };
+      return {
+        success: false,
+        error: `Unknown source type: ${type}`,
+        source_items_limit: sourceItemsLimit,
+      };
     }
 
     return {
@@ -169,4 +158,44 @@ async function testSourceFetch(
       error: err instanceof Error ? err.message : 'Unknown error occurred',
     };
   }
+}
+
+let sourceSchemaReadyPromise: Promise<void> | null = null;
+
+async function ensureWebPageSourceType(env: Env): Promise<void> {
+  if (!sourceSchemaReadyPromise) {
+    sourceSchemaReadyPromise = (async () => {
+      const table = await env.DB.prepare(
+        "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'source'",
+      ).first<{ sql: string }>();
+      if (!table?.sql || /web_page/i.test(table.sql)) return;
+
+      // Rebuild both related tables so source IDs and configuration assignments survive the new CHECK constraint.
+      await env.DB.batch([
+        env.DB.prepare(
+          "CREATE TABLE source_new (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, type TEXT NOT NULL CHECK (type IN ('rss', 'api', 'web_page')), url TEXT NOT NULL, items_path TEXT, enabled INTEGER NOT NULL DEFAULT 1, last_tested_at TEXT, last_test_status TEXT, last_test_message TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')))",
+        ),
+        env.DB.prepare(
+          'CREATE TABLE config_set_source_new (config_set_id INTEGER NOT NULL, source_id INTEGER NOT NULL, PRIMARY KEY (config_set_id, source_id), FOREIGN KEY (config_set_id) REFERENCES config_set(id) ON DELETE CASCADE, FOREIGN KEY (source_id) REFERENCES source_new(id) ON DELETE CASCADE)',
+        ),
+        env.DB.prepare(
+          'INSERT INTO source_new (id, name, type, url, items_path, enabled, last_tested_at, last_test_status, last_test_message, created_at) SELECT id, name, type, url, items_path, enabled, last_tested_at, last_test_status, last_test_message, created_at FROM source',
+        ),
+        env.DB.prepare(
+          'INSERT INTO config_set_source_new (config_set_id, source_id) SELECT config_set_id, source_id FROM config_set_source',
+        ),
+        env.DB.prepare('DROP TABLE config_set_source'),
+        env.DB.prepare('DROP TABLE source'),
+        env.DB.prepare('ALTER TABLE source_new RENAME TO source'),
+        env.DB.prepare('ALTER TABLE config_set_source_new RENAME TO config_set_source'),
+        env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_source_enabled ON source(enabled)'),
+        env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_source_type ON source(type)'),
+      ]);
+    })().catch((error) => {
+      sourceSchemaReadyPromise = null;
+      throw error;
+    });
+  }
+
+  await sourceSchemaReadyPromise;
 }
