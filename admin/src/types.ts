@@ -23,7 +23,6 @@ export type ConfigSet = {
   prompt: string;
   source_ids: number[];
   recipients_json: string;
-  use_web_search: number;
   web_search_query: string | null;
   web_search_provider: WebSearchProvider;
   serp_engine: string | null;

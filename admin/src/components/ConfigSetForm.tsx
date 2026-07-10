@@ -198,17 +198,16 @@ export function ConfigSetForm({
       <div className="form-group">
         <label>
           <Icons.Search /> Web Search
-          <span className="label-hint">(enter a query to enable)</span>
+          <span className="label-hint">(one query per line)</span>
         </label>
-        <input
-          type="text"
-          placeholder="e.g. latest AI news, blockchain regulation..."
+        <textarea
+          rows={3}
+          placeholder={"e.g. latest AI news\nblockchain regulation"}
           value={configForm.web_search_query ?? ""}
           onChange={(event) =>
             onConfigFormChange({
               ...configForm,
               web_search_query: event.target.value || null,
-              use_web_search: event.target.value.trim() ? 1 : 0,
             })
           }
         />
@@ -252,7 +251,7 @@ export function ConfigSetForm({
               </div>
             )}
             <div className="form-group">
-              <label>Max Results</label>
+              <label>Max Results per Query</label>
               <input
                 type="number"
                 min={1}

@@ -26,7 +26,6 @@ export type ConfigSet = {
   schedule_cron: string;
   prompt: string;
   recipients_json: string;
-  use_web_search: number;
   web_search_query: string | null;
   web_search_provider: WebSearchProvider;
   serp_engine: string | null;

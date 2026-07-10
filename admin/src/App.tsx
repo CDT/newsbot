@@ -139,7 +139,6 @@ function App() {
       prompt: "Summarize these items for a daily briefing.",
       source_ids: [],
       recipients_json: "[]",
-      use_web_search: 0,
       web_search_query: null,
       web_search_provider: "tavily",
       serp_engine: null,

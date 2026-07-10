@@ -27,6 +27,10 @@ export function ConfigSetCard({
   const [showEmailPreview, setShowEmailPreview] = useState(false);
   const sourcesCount = config.source_ids.length;
   const recipientsCount = safeParseJsonArray(config.recipients_json).length;
+  const webSearchQueries = (config.web_search_query ?? "")
+    .split(/\r?\n/)
+    .map((query) => query.trim())
+    .filter(Boolean);
 
   useEffect(() => {
     if (!generatedEmailHtml) {
@@ -92,14 +96,19 @@ export function ConfigSetCard({
           <div className="config-card-web-search">
             <span className="icon"><Icons.Search /></span>
             <span className="config-card-web-search-query">
-              {config.web_search_query}
+              {webSearchQueries.join(" · ")}
             </span>
             <code className="config-card-web-search-tag">
               {config.web_search_provider === "serp"
                 ? `SerpApi / ${config.serp_engine || "google"}`
                 : "Tavily"}
             </code>
-            <code className="config-card-web-search-tag">{config.web_search_max_results ?? 10} results</code>
+            <code className="config-card-web-search-tag">
+              {webSearchQueries.length} {webSearchQueries.length === 1 ? "query" : "queries"}
+            </code>
+            <code className="config-card-web-search-tag">
+              {config.web_search_max_results ?? 10} results/query
+            </code>
           </div>
         ) : null}
 

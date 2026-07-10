@@ -193,7 +193,7 @@ export async function handleRunConfigSet(env: Env, id: number): Promise<Response
   await markTimedOutRuns(env);
 
   const config = await env.DB.prepare(
-    'SELECT id, name, enabled, schedule_cron, prompt, recipients_json, use_web_search, web_search_query, web_search_provider, serp_engine, web_search_max_results FROM config_set WHERE id = ?'
+    'SELECT id, name, enabled, schedule_cron, prompt, recipients_json, web_search_query, web_search_provider, serp_engine, web_search_max_results FROM config_set WHERE id = ?'
   )
     .bind(id)
     .first<ConfigSet>();
@@ -262,7 +262,7 @@ export async function getEnabledConfigSets(env: Env, cron: string): Promise<Conf
   await markTimedOutRuns(env);
 
   const rows = await env.DB.prepare(
-    "SELECT id, name, enabled, schedule_cron, prompt, recipients_json, use_web_search, web_search_query, web_search_provider, serp_engine, web_search_max_results FROM config_set WHERE enabled = 1 AND (',' || schedule_cron || ',') LIKE ('%,' || ? || ',%')"
+    "SELECT id, name, enabled, schedule_cron, prompt, recipients_json, web_search_query, web_search_provider, serp_engine, web_search_max_results FROM config_set WHERE enabled = 1 AND (',' || schedule_cron || ',') LIKE ('%,' || ? || ',%')"
   )
     .bind(cron)
     .all<ConfigSet>();
@@ -358,28 +358,43 @@ export async function runConfigSet(env: Env, config: ConfigSet): Promise<RunConf
       `${finalItems.length} items after dedup/filter (from ${totalSourceItemsProcessed}/${totalSourceItemsReported} source items, limit ${sourceItemsLimit} per source${lookbackLabel})`
     );
 
-    const searchQuery = config.web_search_query?.trim();
+    const searchQueries = [
+      ...new Set(
+        (config.web_search_query ?? '')
+          .split(/\r?\n/)
+          .map((query) => query.trim())
+          .filter(Boolean)
+      ),
+    ];
     const searchProvider = config.web_search_provider ?? 'tavily';
     const tavilyApiKey = settings.tavily_api_key?.trim();
     const serpApiKey = settings.serp_api_key?.trim();
     const hasSearchKey = searchProvider === 'serp' ? !!serpApiKey : !!tavilyApiKey;
 
-    if (searchQuery && hasSearchKey) {
+    if (searchQueries.length > 0 && hasSearchKey) {
       const maxResults = config.web_search_max_results ?? 10;
-      let webItems: NewsItem[];
-      if (searchProvider === 'serp' && serpApiKey) {
-        const engine = config.serp_engine?.trim() || 'google';
-        await updateStatus(`Searching web via SerpApi (${engine}): "${searchQuery}"`);
-        webItems = await searchSerp(serpApiKey, searchQuery, engine, maxResults);
-      } else {
-        await updateStatus(`Searching web via Tavily: "${searchQuery}"`);
-        webItems = await searchTavily(tavilyApiKey!, searchQuery, maxResults);
+      const webItems: NewsItem[] = [];
+      for (const [index, searchQuery] of searchQueries.entries()) {
+        if (searchProvider === 'serp' && serpApiKey) {
+          const engine = config.serp_engine?.trim() || 'google';
+          await updateStatus(
+            `Searching web ${index + 1}/${searchQueries.length} via SerpApi (${engine}): "${searchQuery}"`
+          );
+          webItems.push(...(await searchSerp(serpApiKey, searchQuery, engine, maxResults)));
+        } else {
+          await updateStatus(
+            `Searching web ${index + 1}/${searchQueries.length} via Tavily: "${searchQuery}"`
+          );
+          webItems.push(...(await searchTavily(tavilyApiKey!, searchQuery, maxResults)));
+        }
       }
 
       const beforeCount = finalItems.length;
       finalItems = dedupeItems([...finalItems, ...webItems]);
       const addedCount = finalItems.length - beforeCount;
-      await updateStatus(`Added ${addedCount} item(s) from web search (${finalItems.length} total)`);
+      await updateStatus(
+        `Added ${addedCount} item(s) from ${searchQueries.length} web search quer${searchQueries.length === 1 ? 'y' : 'ies'} (${finalItems.length} total)`
+      );
     }
 
     if (sources.length > 0 && failedSourceNotes.length === sources.length && finalItems.length === 0) {

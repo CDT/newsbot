@@ -93,7 +93,7 @@ async function syncSourceIds(db: D1Database, configSetId: number, sourceIds: num
 export async function handleListConfigSets(env: Env): Promise<Response> {
   await ensureConfigSetSchema(env);
   const rows = await env.DB.prepare(
-    'SELECT id, name, enabled, schedule_cron, prompt, recipients_json, use_web_search, web_search_query, web_search_provider, serp_engine, web_search_max_results FROM config_set ORDER BY id DESC'
+    'SELECT id, name, enabled, schedule_cron, prompt, recipients_json, web_search_query, web_search_provider, serp_engine, web_search_max_results FROM config_set ORDER BY id DESC'
   ).all<ConfigSet>();
 
   const configs: ConfigSetResponse[] = [];
@@ -121,9 +121,9 @@ export async function handleCreateConfigSet(request: Request, env: Env): Promise
   const sourceIds = body.source_ids ?? [];
 
   const result = await env.DB.prepare(
-    'INSERT INTO config_set (name, enabled, schedule_cron, prompt, recipients_json, use_web_search, web_search_query, web_search_provider, serp_engine, web_search_max_results) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    'INSERT INTO config_set (name, enabled, schedule_cron, prompt, recipients_json, web_search_query, web_search_provider, serp_engine, web_search_max_results) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
   )
-    .bind(body.name, body.enabled ? 1 : 0, scheduleCron, body.prompt, recipients, body.use_web_search ? 1 : 0, body.web_search_query ?? null, body.web_search_provider ?? 'tavily', body.serp_engine ?? null, body.web_search_max_results ?? 10)
+    .bind(body.name, body.enabled ? 1 : 0, scheduleCron, body.prompt, recipients, body.web_search_query?.trim() || null, body.web_search_provider ?? 'tavily', body.serp_engine ?? null, body.web_search_max_results ?? 10)
     .run();
 
   const newId = result.meta.last_row_id as number;
@@ -157,7 +157,7 @@ export async function handleUpdateConfigSet(
   }
 
   await env.DB.prepare(
-    'UPDATE config_set SET name = ?, enabled = ?, schedule_cron = ?, prompt = ?, recipients_json = ?, use_web_search = ?, web_search_query = ?, web_search_provider = ?, serp_engine = ?, web_search_max_results = ? WHERE id = ?'
+    'UPDATE config_set SET name = ?, enabled = ?, schedule_cron = ?, prompt = ?, recipients_json = ?, web_search_query = ?, web_search_provider = ?, serp_engine = ?, web_search_max_results = ? WHERE id = ?'
   )
     .bind(
       body.name,
@@ -165,8 +165,7 @@ export async function handleUpdateConfigSet(
       scheduleCron,
       body.prompt,
       body.recipients_json ?? '[]',
-      body.use_web_search ? 1 : 0,
-      body.web_search_query ?? null,
+      body.web_search_query?.trim() || null,
       body.web_search_provider ?? 'tavily',
       body.serp_engine ?? null,
       body.web_search_max_results ?? 10,
@@ -197,8 +196,7 @@ export async function handlePatchConfigSet(request: Request, env: Env, id: numbe
   if (body.web_search_query !== undefined) {
     const query = body.web_search_query?.trim() || null;
     fields.push('web_search_query = ?');
-    fields.push('use_web_search = ?');
-    values.push(query, query ? 1 : 0);
+    values.push(query);
   }
   if (body.web_search_provider !== undefined) {
     fields.push('web_search_provider = ?');
